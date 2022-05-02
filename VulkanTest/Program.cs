@@ -10,7 +10,7 @@ namespace VulkanTest
    
         static void Main(string[] args)
         {
-            TriangleTest test = new();
+            VulkanTutorial test = new();
             test.Run();
         }
                         

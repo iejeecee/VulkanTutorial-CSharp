@@ -16,8 +16,8 @@ using System.Runtime.InteropServices;
 
 namespace VulkanTest
 {
-    
-    unsafe class TriangleTest
+
+    unsafe class VulkanTutorial
     {
 #if DEBUG
         readonly bool isEnableValidationLayers = true;
@@ -32,7 +32,7 @@ namespace VulkanTest
         IWindow window;
         Vk vk;
         Instance instance;
-       
+
         SurfaceKHR surface;
         SwapchainKHR swapChain;
         DebugUtilsMessengerEXT debugMessenger;
@@ -121,7 +121,7 @@ namespace VulkanTest
         }
 
         struct SwapChainSupportDetails
-        {            
+        {
             public SurfaceCapabilitiesKHR Capabilities;
             public SurfaceFormatKHR[] Formats;
             public PresentModeKHR[] PresentModes;
@@ -140,7 +140,7 @@ namespace VulkanTest
                 new Vertex(new (-0.5f, 0.5f, -0.5f), new (1.0f, 1.0f, 1.0f), new (1.0f, 1.0f))
            };
 
-        readonly ushort[] indices = new ushort[] { 
+        readonly ushort[] indices = new ushort[] {
             0, 1, 2, 2, 3, 0,
             4, 5, 6, 6, 7, 4
         };
@@ -173,9 +173,9 @@ namespace VulkanTest
             InitWindow();
             InitializeVulkan();
 
-            window.Render += Window_Render; 
+            window.Render += Window_Render;
             window.Run();
-         
+
             vk.DeviceWaitIdle(device);
 
             Cleanup();
@@ -198,7 +198,7 @@ namespace VulkanTest
             CreateImageViews();
             CreateRenderPass();
             CreateDescriptorSetLayout();
-            CreateGraphicsPipeline();          
+            CreateGraphicsPipeline();
             CreateCommandPool();
 
             CreateDepthResources();
@@ -227,9 +227,9 @@ namespace VulkanTest
             createInfo.MessageSeverity = DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityVerboseBitExt | DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityInfoBitExt | DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt | DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityErrorBitExt;
             createInfo.MessageType = DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt | DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt | DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt;
             createInfo.PfnUserCallback = new PfnDebugUtilsMessengerCallbackEXT(MessageCallback);
-            createInfo.PUserData = null;            
+            createInfo.PUserData = null;
         }
-       
+
         void SetupDebugMessenger()
         {
             if (!isEnableValidationLayers) return;
@@ -239,19 +239,19 @@ namespace VulkanTest
             DebugUtilsMessengerCreateInfoEXT createInfo = new();
             PopulateDebugMessengerCreateInfo(ref createInfo);
 
-            if (debugUtils.CreateDebugUtilsMessenger(instance, in createInfo, null, 
+            if (debugUtils.CreateDebugUtilsMessenger(instance, in createInfo, null,
                 out debugMessenger) != Result.Success)
             {
                 throw new Exception("Failed to create debug messenger.");
             }
-            
+
         }
 
         static uint MessageCallback(DebugUtilsMessageSeverityFlagsEXT severity, DebugUtilsMessageTypeFlagsEXT messageType, DebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
         {
             string messageSeverity;
 
-            if (severity < DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt) return Vk.False; 
+            if (severity < DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt) return Vk.False;
 
             if (severity.HasFlag(DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityErrorBitExt))
             {
@@ -303,7 +303,7 @@ namespace VulkanTest
                     throw new NotSupportedException("Validation layers requested, but not available!");
                 }
             }
-         
+
             ApplicationInfo appInfo = new()
             {
                 SType = StructureType.ApplicationInfo,
@@ -353,21 +353,21 @@ namespace VulkanTest
                 createInfo.EnabledLayerCount = 0;
                 createInfo.PNext = null;
             }
-         
+
             Result result = vk.CreateInstance(in createInfo, null, out instance);
 
             if (result != Result.Success)
             {
                 throw new Exception("Failed to create instance!");
             }
-           
+
             vk.CurrentInstance = instance;
 
             if (!vk.TryGetInstanceExtension(instance, out vkSurface))
             {
                 throw new NotSupportedException("KHR_surface extension not found.");
             }
-                   
+
             Marshal.FreeHGlobal((nint)appInfo.PApplicationName);
             Marshal.FreeHGlobal((nint)appInfo.PEngineName);
 
@@ -379,9 +379,9 @@ namespace VulkanTest
             vk.EnumerateInstanceLayerProperties(&nrLayers, null);
 
             LayerProperties[] availableLayers = new LayerProperties[nrLayers];
-           
+
             vk.EnumerateInstanceLayerProperties(&nrLayers, availableLayers);
-            
+
             var availableLayerNames = availableLayers.Select(availableLayer => Marshal.PtrToStringAnsi((nint)availableLayer.LayerName)).ToArray();
             foreach (var validationLayerNameSet in validationLayerNamesPriorityList)
             {
@@ -406,10 +406,10 @@ namespace VulkanTest
                 SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
                 isSwapChainAdequate = (swapChainSupport.Formats != null) && (swapChainSupport.PresentModes != null);
             }
-      
+
             vk.GetPhysicalDeviceFeatures(device, out PhysicalDeviceFeatures supportedFeatures);
 
-            return indices.IsComplete && isExtensionsSupported && isSwapChainAdequate 
+            return indices.IsComplete && isExtensionsSupported && isSwapChainAdequate
                 && supportedFeatures.SamplerAnisotropy; ;
         }
 
@@ -423,7 +423,7 @@ namespace VulkanTest
 
             HashSet<string> requiredExtensions = new(deviceExtensions);
 
-            foreach (var extension in availableExtensions) 
+            foreach (var extension in availableExtensions)
             {
                 requiredExtensions.Remove(Marshal.PtrToStringAnsi((nint)extension.ExtensionName));
             }
@@ -447,7 +447,7 @@ namespace VulkanTest
 
             physicalDevice.Handle = IntPtr.Zero;
 
-            foreach (var device in devices) 
+            foreach (var device in devices)
             {
                 if (IsDeviceSuitable(device))
                 {
@@ -455,14 +455,14 @@ namespace VulkanTest
                     break;
                 }
             }
-           
+
             if (physicalDevice.Handle == IntPtr.Zero)
             {
                 throw new Exception("failed to find a suitable GPU!");
             }
 
         }
-        
+
         QueueFamilyIndices FindQueueFamilies(PhysicalDevice device)
         {
             QueueFamilyIndices indices = new();
@@ -472,9 +472,9 @@ namespace VulkanTest
 
             QueueFamilyProperties[] queueFamilies = new QueueFamilyProperties[queueFamilyCount];
             vk.GetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
-                             
+
             uint i = 0;
-            foreach (var queueFamily in queueFamilies) 
+            foreach (var queueFamily in queueFamilies)
             {
                 if (queueFamily.QueueFlags.HasFlag(QueueFlags.QueueGraphicsBit))
                 {
@@ -485,7 +485,7 @@ namespace VulkanTest
 
                 if (presentSupport)
                 {
-                    indices.PresentFamily = i; 
+                    indices.PresentFamily = i;
                 }
 
                 if (indices.IsComplete)
@@ -504,8 +504,8 @@ namespace VulkanTest
             float queuePriority = 1.0f;
 
             QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
-            
-            HashSet<uint> uniqueQueueFamilies = new() { indices.GraphicsFamily.Value, indices.PresentFamily.Value};
+
+            HashSet<uint> uniqueQueueFamilies = new() { indices.GraphicsFamily.Value, indices.PresentFamily.Value };
 
             using var mem = GlobalMemory.Allocate(uniqueQueueFamilies.Count * sizeof(DeviceQueueCreateInfo));
             var queueCreateInfos = (DeviceQueueCreateInfo*)Unsafe.AsPointer(ref mem.GetPinnableReference());
@@ -537,9 +537,9 @@ namespace VulkanTest
                 QueueCreateInfoCount = 1,
                 PEnabledFeatures = &deviceFeatures,
                 EnabledExtensionCount = (uint)deviceExtensions.Length,
-                PpEnabledExtensionNames = (byte **)SilkMarshal.StringArrayToPtr(deviceExtensions)
+                PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(deviceExtensions)
             };
-           
+
             if (isEnableValidationLayers)
             {
                 createInfo.EnabledLayerCount = (uint)validationLayers.Length;
@@ -549,12 +549,12 @@ namespace VulkanTest
             {
                 createInfo.EnabledLayerCount = 0;
             }
-           
+
             if (vk.CreateDevice(physicalDevice, in createInfo, null, out device) != Result.Success)
             {
                 throw new Exception("failed to create logical device!");
             }
-                       
+
             vk.GetDeviceQueue(device, indices.GraphicsFamily.Value, 0, out graphicsQueue);
             vk.GetDeviceQueue(device, indices.PresentFamily.Value, 0, out presentQueue);
 
@@ -587,25 +587,25 @@ namespace VulkanTest
             return details;
         }
 
-        SurfaceFormatKHR ChooseSwapSurfaceFormat(SurfaceFormatKHR[] availableFormats) 
+        SurfaceFormatKHR ChooseSwapSurfaceFormat(SurfaceFormatKHR[] availableFormats)
         {
             foreach (var availableFormat in availableFormats)
             {
                 if (availableFormat.Format == Format.B8G8R8A8Srgb &&
-                    availableFormat.ColorSpace == ColorSpaceKHR.ColorSpaceSrgbNonlinearKhr) 
+                    availableFormat.ColorSpace == ColorSpaceKHR.ColorSpaceSrgbNonlinearKhr)
                 {
                     return availableFormat;
                 }
             }
-        
+
             return availableFormats[0];
         }
 
-        PresentModeKHR ChooseSwapPresentMode(PresentModeKHR[] availablePresentModes) 
+        PresentModeKHR ChooseSwapPresentMode(PresentModeKHR[] availablePresentModes)
         {
-            foreach (var availablePresentMode in availablePresentModes) 
+            foreach (var availablePresentMode in availablePresentModes)
             {
-                if (availablePresentMode == PresentModeKHR.PresentModeMailboxKhr) 
+                if (availablePresentMode == PresentModeKHR.PresentModeMailboxKhr)
                 {
                     return availablePresentMode;
                 }
@@ -614,20 +614,20 @@ namespace VulkanTest
             return PresentModeKHR.PresentModeFifoKhr;
         }
 
-        Extent2D ChooseSwapExtent(SurfaceCapabilitiesKHR capabilities) 
+        Extent2D ChooseSwapExtent(SurfaceCapabilitiesKHR capabilities)
         {
-            if (capabilities.CurrentExtent.Width != uint.MaxValue) 
+            if (capabilities.CurrentExtent.Width != uint.MaxValue)
             {
                 return capabilities.CurrentExtent;
-            } 
-            else 
-            {                            
+            }
+            else
+            {
                 Extent2D actualExtent = new()
                 {
                     Width = (uint)window.FramebufferSize.X,
                     Height = (uint)window.FramebufferSize.Y
                 };
-                
+
                 actualExtent.Width = Math.Clamp(actualExtent.Width, capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width);
                 actualExtent.Height = Math.Clamp(actualExtent.Height, capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height);
 
@@ -645,7 +645,7 @@ namespace VulkanTest
 
             uint imageCount = swapChainSupport.Capabilities.MinImageCount + 1;
 
-            if (swapChainSupport.Capabilities.MaxImageCount > 0 && 
+            if (swapChainSupport.Capabilities.MaxImageCount > 0 &&
                 imageCount > swapChainSupport.Capabilities.MaxImageCount)
             {
                 imageCount = swapChainSupport.Capabilities.MaxImageCount;
@@ -666,7 +666,7 @@ namespace VulkanTest
             QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
 
             uint* queueFamilyIndices = stackalloc uint[2];
-           
+
             queueFamilyIndices[0] = indices.GraphicsFamily.Value;
             queueFamilyIndices[1] = indices.PresentFamily.Value;
 
@@ -698,7 +698,7 @@ namespace VulkanTest
             {
                 throw new Exception("failed to create swap chain!");
             }
-          
+
             vkSwapChain.GetSwapchainImages(device, swapChain, &imageCount, null);
             swapChainImages = new Image[imageCount];
             vkSwapChain.GetSwapchainImages(device, swapChain, &imageCount, swapChainImages);
@@ -706,7 +706,7 @@ namespace VulkanTest
             swapChainImageFormat = surfaceFormat.Format;
             swapChainExtent = extent;
         }
-               
+
         void CreateImageViews()
         {
             swapChainImageViews = new ImageView[swapChainImages.Length];
@@ -714,7 +714,7 @@ namespace VulkanTest
             for (int i = 0; i < swapChainImages.Length; i++)
             {
                 swapChainImageViews[i] = CreateImageView(swapChainImages[i], swapChainImageFormat,
-                    ImageAspectFlags.ImageAspectColorBit);                
+                    ImageAspectFlags.ImageAspectColorBit);
             }
         }
 
@@ -723,7 +723,7 @@ namespace VulkanTest
             return File.ReadAllBytes(filename);
         }
 
-        ShaderModule CreateShaderModule(byte[] code) 
+        ShaderModule CreateShaderModule(byte[] code)
         {
             fixed (byte* codePtr = code)
             {
@@ -741,7 +741,7 @@ namespace VulkanTest
 
                 return shaderModule;
             }
-            
+
         }
 
         void CreateDescriptorSetLayout()
@@ -764,9 +764,12 @@ namespace VulkanTest
                 PImmutableSamplers = null
             };
 
-            DescriptorSetLayoutBinding* bindings = stackalloc DescriptorSetLayoutBinding[] 
-                { uboLayoutBinding, samplerLayoutBinding };
-         
+            DescriptorSetLayoutBinding* bindings = stackalloc DescriptorSetLayoutBinding[]
+            { 
+                uboLayoutBinding, 
+                samplerLayoutBinding 
+            };
+
             DescriptorSetLayoutCreateInfo layoutInfo = new()
             {
                 SType = StructureType.DescriptorSetLayoutCreateInfo,
@@ -777,7 +780,7 @@ namespace VulkanTest
             if (vk.CreateDescriptorSetLayout(device, in layoutInfo, null, out descriptorSetLayout) != Result.Success)
             {
                 throw new Exception("failed to create descriptor set layout!");
-            }                   
+            }
         }
 
         void CreateGraphicsPipeline()
@@ -807,10 +810,10 @@ namespace VulkanTest
             var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
             shaderStages[0] = vertShaderStageInfo;
             shaderStages[1] = fragShaderStageInfo;
-           
+
             PipelineInputAssemblyStateCreateInfo inputAssembly = new()
             {
-                SType = StructureType.PipelineInputAssemblyStateCreateInfo, 
+                SType = StructureType.PipelineInputAssemblyStateCreateInfo,
                 Topology = PrimitiveTopology.TriangleList,
                 PrimitiveRestartEnable = false
             };
@@ -867,9 +870,9 @@ namespace VulkanTest
             };
 
             PipelineColorBlendAttachmentState colorBlendAttachment = new()
-            {                
+            {
                 ColorWriteMask = ColorComponentFlags.ColorComponentRBit |
-                                 ColorComponentFlags.ColorComponentGBit | 
+                                 ColorComponentFlags.ColorComponentGBit |
                                  ColorComponentFlags.ColorComponentBBit |
                                  ColorComponentFlags.ColorComponentABit,
                 BlendEnable = false,
@@ -904,7 +907,7 @@ namespace VulkanTest
                     PushConstantRangeCount = 0,
                     PPushConstantRanges = null
                 };
-              
+
                 if (vk.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out pipelineLayout) != Result.Success)
                 {
                     throw new Exception("failed to create pipeline layout!");
@@ -925,7 +928,7 @@ namespace VulkanTest
 
             var bindingDescription = Vertex.GetBindingDescription();
             var attributeDescriptions = Vertex.GetAttributeDescriptions();
-        
+
             fixed (VertexInputAttributeDescription* attributeDescriptionsPtr = &attributeDescriptions[0])
             {
                 PipelineVertexInputStateCreateInfo vertexInputInfo = new()
@@ -947,7 +950,7 @@ namespace VulkanTest
                     PViewportState = &viewportState,
                     PRasterizationState = &rasterizer,
                     PMultisampleState = &multisampling,
-                    PDepthStencilState = &depthStencil, 
+                    PDepthStencilState = &depthStencil,
                     PColorBlendState = &colorBlending,
                     PDynamicState = null, // Optional
                     Layout = pipelineLayout,
@@ -1028,11 +1031,12 @@ namespace VulkanTest
                     AccessFlags.AccessDepthStencilAttachmentWriteBit
             };
 
-            AttachmentDescription* attachments = stackalloc AttachmentDescription[2] {
-                colorAttachment,
-                depthAttachment
-            };
-                    
+            AttachmentDescription* attachments = stackalloc AttachmentDescription[2]
+                {
+                    colorAttachment,
+                    depthAttachment
+                };
+
             RenderPassCreateInfo renderPassInfo = new()
             {
                 SType = StructureType.RenderPassCreateInfo,
@@ -1048,7 +1052,7 @@ namespace VulkanTest
             {
                 throw new Exception("failed to create render pass!");
             }
-            
+
         }
 
         void CreateFramebuffers()
@@ -1056,11 +1060,12 @@ namespace VulkanTest
             swapChainFramebuffers = new Framebuffer[swapChainImageViews.Length];
 
             for (int i = 0; i < swapChainFramebuffers.Length; i++)
-            {                          
-                ImageView *attachments = stackalloc[] {
-                    swapChainImageViews[i],
-                    depthImageView
-                };
+            {
+                ImageView* attachments = stackalloc[]
+                    {
+                        swapChainImageViews[i],
+                        depthImageView
+                    };
 
                 FramebufferCreateInfo framebufferInfo = new()
                 {
@@ -1105,7 +1110,7 @@ namespace VulkanTest
 
             CreateImage(swapChainExtent.Width, swapChainExtent.Height, depthFormat,
                 ImageTiling.Optimal, ImageUsageFlags.ImageUsageDepthStencilAttachmentBit,
-                MemoryPropertyFlags.MemoryPropertyDeviceLocalBit, 
+                MemoryPropertyFlags.MemoryPropertyDeviceLocalBit,
                 out depthImage, out depthImageMemory);
 
             depthImageView = CreateImageView(depthImage, depthFormat,
@@ -1117,18 +1122,18 @@ namespace VulkanTest
 
         Format FindDepthFormat()
         {
-            return FindSupportedFormat(new 
-                []{Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint},
+            return FindSupportedFormat(new
+                [] { Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint },
                 ImageTiling.Optimal,
                 FormatFeatureFlags.FormatFeatureDepthStencilAttachmentBit
                 );
         }
 
-        Format FindSupportedFormat(Format[] candidates, ImageTiling tiling, FormatFeatureFlags features) 
+        Format FindSupportedFormat(Format[] candidates, ImageTiling tiling, FormatFeatureFlags features)
         {
             foreach (Format format in candidates)
-            {              
-                vk.GetPhysicalDeviceFormatProperties(physicalDevice, format, 
+            {
+                vk.GetPhysicalDeviceFormatProperties(physicalDevice, format,
                     out FormatProperties props);
 
                 if (tiling == ImageTiling.Linear && (props.LinearTilingFeatures & features) == features)
@@ -1154,14 +1159,14 @@ namespace VulkanTest
             var customConfig = SixLabors.ImageSharp.Configuration.Default.Clone();
             customConfig.PreferContiguousImageBuffers = true;
 
-            using var image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(customConfig,"texture.jpg");
-            
+            using var image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(customConfig, "texture.jpg");
+
             ulong imageSize = (ulong)(image.Width * image.Height * 4);
 
             CreateBuffer(imageSize, BufferUsageFlags.BufferUsageTransferSrcBit,
                 MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
                 MemoryPropertyFlags.MemoryPropertyHostCoherentBit,
-                out Silk.NET.Vulkan.Buffer stagingBuffer, 
+                out Silk.NET.Vulkan.Buffer stagingBuffer,
                 out DeviceMemory stagingBufferMemory);
 
             if (!image.DangerousTryGetSinglePixelMemory(out Memory<SixLabors.ImageSharp.PixelFormats.Rgba32> memory))
@@ -1193,13 +1198,13 @@ namespace VulkanTest
         }
 
         void CreateImage(
-            uint width, 
-            uint height, 
-            Format format, 
-            ImageTiling tiling, 
-            ImageUsageFlags usage, 
-            MemoryPropertyFlags properties, 
-            out Image image, 
+            uint width,
+            uint height,
+            Format format,
+            ImageTiling tiling,
+            ImageUsageFlags usage,
+            MemoryPropertyFlags properties,
+            out Image image,
             out DeviceMemory imageMemory
             )
         {
@@ -1226,8 +1231,8 @@ namespace VulkanTest
             {
                 throw new Exception("failed to create image!");
             }
-            
-            vk.GetImageMemoryRequirements(device, image, 
+
+            vk.GetImageMemoryRequirements(device, image,
                 out MemoryRequirements memRequirements);
 
             MemoryAllocateInfo allocInfo = new()
@@ -1247,13 +1252,13 @@ namespace VulkanTest
         }
 
         void TransitionImageLayout(
-            Image image, 
-            Format format, 
-            ImageLayout oldLayout, 
+            Image image,
+            Format format,
+            ImageLayout oldLayout,
             ImageLayout newLayout
             )
         {
-            
+
             CommandBuffer commandBuffer = BeginSingleTimeCommands();
 
             ImageMemoryBarrier barrier = new();
@@ -1332,9 +1337,9 @@ namespace VulkanTest
         }
 
         void CopyBufferToImage(
-            Silk.NET.Vulkan.Buffer buffer, 
-            Image image, 
-            uint width, 
+            Silk.NET.Vulkan.Buffer buffer,
+            Image image,
+            uint width,
             uint height
             )
         {
@@ -1385,7 +1390,7 @@ namespace VulkanTest
             viewInfo.SubresourceRange.LevelCount = 1;
             viewInfo.SubresourceRange.BaseArrayLayer = 0;
             viewInfo.SubresourceRange.LayerCount = 1;
-           
+
             if (vk.CreateImageView(device, in viewInfo, null, out ImageView imageView) != Result.Success)
             {
                 throw new Exception("failed to create texture image view!");
@@ -1444,12 +1449,12 @@ namespace VulkanTest
 
             vk.UnmapMemory(device, stagingBufferMemory);
 
-            CreateBuffer(bufferSize, 
+            CreateBuffer(bufferSize,
                 BufferUsageFlags.BufferUsageTransferDstBit |
-                    BufferUsageFlags.BufferUsageVertexBufferBit, 
-                MemoryPropertyFlags.MemoryPropertyHostVisibleBit | 
-                    MemoryPropertyFlags.MemoryPropertyDeviceLocalBit, 
-                out vertexBuffer, 
+                    BufferUsageFlags.BufferUsageVertexBufferBit,
+                MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
+                    MemoryPropertyFlags.MemoryPropertyDeviceLocalBit,
+                out vertexBuffer,
                 out vertexBufferMemory);
 
             CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
@@ -1460,10 +1465,10 @@ namespace VulkanTest
         }
 
         void CreateBuffer(
-            ulong size, 
-            BufferUsageFlags usage, 
-            MemoryPropertyFlags properties, 
-            out Silk.NET.Vulkan.Buffer buffer, 
+            ulong size,
+            BufferUsageFlags usage,
+            MemoryPropertyFlags properties,
+            out Silk.NET.Vulkan.Buffer buffer,
             out DeviceMemory bufferMemory)
         {
             BufferCreateInfo bufferInfo = new()
@@ -1493,13 +1498,13 @@ namespace VulkanTest
             {
                 throw new Exception("failed to allocate buffer memory!");
             }
-           
+
             vk.BindBufferMemory(device, buffer, bufferMemory, 0);
         }
 
         void CopyBuffer(
-            Silk.NET.Vulkan.Buffer srcBuffer, 
-            Silk.NET.Vulkan.Buffer dstBuffer, 
+            Silk.NET.Vulkan.Buffer srcBuffer,
+            Silk.NET.Vulkan.Buffer dstBuffer,
             uint size)
         {
             CommandBuffer commandBuffer = BeginSingleTimeCommands();
@@ -1554,7 +1559,7 @@ namespace VulkanTest
 
         uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
         {
-            vk.GetPhysicalDeviceMemoryProperties(physicalDevice, 
+            vk.GetPhysicalDeviceMemoryProperties(physicalDevice,
                 out PhysicalDeviceMemoryProperties memProperties);
 
             for (int i = 0; i < memProperties.MemoryTypeCount; i++)
@@ -1608,13 +1613,13 @@ namespace VulkanTest
             uint bufferSize = (uint)sizeof(UniformBufferObject);
 
             uniformBuffers = new Silk.NET.Vulkan.Buffer[MAX_FRAMES_IN_FLIGHT];
-            uniformBuffersMemory= new DeviceMemory[MAX_FRAMES_IN_FLIGHT];
+            uniformBuffersMemory = new DeviceMemory[MAX_FRAMES_IN_FLIGHT];
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                CreateBuffer(bufferSize, BufferUsageFlags.BufferUsageUniformBufferBit, 
-                    MemoryPropertyFlags.MemoryPropertyHostVisibleBit | 
-                    MemoryPropertyFlags.MemoryPropertyHostCoherentBit, 
+                CreateBuffer(bufferSize, BufferUsageFlags.BufferUsageUniformBufferBit,
+                    MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
+                    MemoryPropertyFlags.MemoryPropertyHostCoherentBit,
                     out uniformBuffers[i], out uniformBuffersMemory[i]);
             }
         }
@@ -1622,7 +1627,7 @@ namespace VulkanTest
         void CreateDescriptorPool()
         {
             int nrPools = 2;
-            DescriptorPoolSize *poolSizes = stackalloc DescriptorPoolSize[nrPools];
+            DescriptorPoolSize* poolSizes = stackalloc DescriptorPoolSize[nrPools];
 
             poolSizes[0] = new DescriptorPoolSize
             {
@@ -1635,7 +1640,7 @@ namespace VulkanTest
                 Type = DescriptorType.CombinedImageSampler,
                 DescriptorCount = MAX_FRAMES_IN_FLIGHT
             };
-           
+
             DescriptorPoolCreateInfo poolInfo = new()
             {
                 SType = StructureType.DescriptorPoolCreateInfo,
@@ -1648,7 +1653,7 @@ namespace VulkanTest
             {
                 throw new Exception("failed to create descriptor pool!");
             }
-            
+
         }
 
         void CreateDescriptorSets()
@@ -1659,7 +1664,7 @@ namespace VulkanTest
             {
                 layouts[i] = descriptorSetLayout;
             }
-           
+
             DescriptorSetAllocateInfo allocInfo = new()
             {
                 SType = StructureType.DescriptorSetAllocateInfo,
@@ -1673,7 +1678,7 @@ namespace VulkanTest
             {
                 throw new Exception("failed to allocate descriptor sets!");
             }
-            
+
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
                 DescriptorBufferInfo bufferInfo = new()
@@ -1698,7 +1703,7 @@ namespace VulkanTest
                     DstArrayElement = 0,
                     DescriptorType = DescriptorType.UniformBuffer,
                     DescriptorCount = 1,
-                    PBufferInfo = &bufferInfo,                 
+                    PBufferInfo = &bufferInfo,
                 };
 
                 descriptorWrites[1] = new WriteDescriptorSet
@@ -1708,19 +1713,19 @@ namespace VulkanTest
                     DstBinding = 1,
                     DstArrayElement = 0,
                     DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = 1,                 
-                    PImageInfo = &imageInfo, 
-                    
+                    DescriptorCount = 1,
+                    PImageInfo = &imageInfo,
+
                 };
-               
+
                 vk.UpdateDescriptorSets(
                     device,
                     (uint)descriptorWrites.Length,
                     new ReadOnlySpan<WriteDescriptorSet>(descriptorWrites),
                     0,
-                    (CopyDescriptorSet *)null
+                    (CopyDescriptorSet*)null
                     );
-                
+
             }
         }
 
@@ -1738,7 +1743,7 @@ namespace VulkanTest
                     CommandBufferCount = 1
                 };
 
-                if (vk.AllocateCommandBuffers(device, in allocInfo, out commandBuffers[i]) 
+                if (vk.AllocateCommandBuffers(device, in allocInfo, out commandBuffers[i])
                     != Result.Success)
                 {
                     throw new Exception("failed to allocate command buffers!");
@@ -1760,12 +1765,12 @@ namespace VulkanTest
                 throw new Exception("failed to begin recording command buffer!");
             }
 
-            ClearValue *clearValues = stackalloc[] {
+            ClearValue* clearValues = stackalloc[]
+                {
+                    new ClearValue(new ClearColorValue(0, 0, 0, 1)),
+                    new ClearValue(null, new ClearDepthStencilValue(1.0f, 0))
+                };
 
-                new ClearValue(new ClearColorValue(0, 0, 0, 1)),
-                new ClearValue(null, new ClearDepthStencilValue(1.0f, 0))
-            };
-           
             RenderPassBeginInfo renderPassInfo = new()
             {
                 SType = StructureType.RenderPassBeginInfo,
@@ -1774,22 +1779,22 @@ namespace VulkanTest
                 ClearValueCount = 2,
                 PClearValues = clearValues
             };
-            
+
             renderPassInfo.RenderArea.Offset = new Offset2D(0, 0);
             renderPassInfo.RenderArea.Extent = swapChainExtent;
-                        
+
             vk.CmdBeginRenderPass(commandBuffer, in renderPassInfo, SubpassContents.Inline);
 
             vk.CmdBindPipeline(commandBuffer, PipelineBindPoint.Graphics, graphicsPipeline);
-            
+
             ulong offsets = 0;
             vk.CmdBindVertexBuffers(commandBuffer, 0, 1, in vertexBuffer, in offsets);
 
             vk.CmdBindIndexBuffer(commandBuffer, indexBuffer, 0, IndexType.Uint16);
-         
+
             vk.CmdBindDescriptorSets(commandBuffer, PipelineBindPoint.Graphics, pipelineLayout,
                 0, 1, in descriptorSets[currentFrame], 0, null);
-                
+
             vk.CmdDrawIndexed(commandBuffer, (uint)indices.Length, 1, 0, 0, 0);
 
             vk.CmdEndRenderPass(commandBuffer);
@@ -1814,7 +1819,7 @@ namespace VulkanTest
             FenceCreateInfo fenceInfo = new()
             {
                 SType = StructureType.FenceCreateInfo,
-                Flags = FenceCreateFlags.FenceCreateSignaledBit               
+                Flags = FenceCreateFlags.FenceCreateSignaledBit
             };
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -1830,12 +1835,12 @@ namespace VulkanTest
 
         void DrawFrame()
         {
-                      
-            vk.WaitForFences(device, 1, in inFlightFences[currentFrame], true, ulong.MaxValue);               
-            
+
+            vk.WaitForFences(device, 1, in inFlightFences[currentFrame], true, ulong.MaxValue);
+
             uint imageIndex = 0;
 
-            var result = vkSwapChain.AcquireNextImage(device, swapChain, ulong.MaxValue, 
+            var result = vkSwapChain.AcquireNextImage(device, swapChain, ulong.MaxValue,
                 imageAvailableSemaphores[currentFrame], new Fence(null), ref imageIndex);
 
             if (result == Result.ErrorOutOfDateKhr || result == Result.SuboptimalKhr || isFramebufferResized)
@@ -1848,16 +1853,16 @@ namespace VulkanTest
             {
                 throw new Exception("failed to acquire swap chain image!");
             }
-        
+
             vk.ResetFences(device, 1, in inFlightFences[currentFrame]);
-         
+
             vk.ResetCommandBuffer(commandBuffers[currentFrame], 0);
             RecordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
             UpdateUniformBuffer(imageIndex);
 
-            Semaphore *waitSemaphores = stackalloc[] { imageAvailableSemaphores[currentFrame] };
-            PipelineStageFlags *waitStages = stackalloc[] { PipelineStageFlags.PipelineStageColorAttachmentOutputBit };
+            Semaphore* waitSemaphores = stackalloc[] { imageAvailableSemaphores[currentFrame] };
+            PipelineStageFlags* waitStages = stackalloc[] { PipelineStageFlags.PipelineStageColorAttachmentOutputBit };
             Semaphore signalSemaphore = renderFinishedSemaphores[currentFrame];
 
             SubmitInfo submitInfo = new()
@@ -1865,11 +1870,11 @@ namespace VulkanTest
                 SType = StructureType.SubmitInfo,
                 WaitSemaphoreCount = 1
             };
-            
+
             fixed (CommandBuffer* commandBufferPtr = &commandBuffers[currentFrame])
             {
                 submitInfo.WaitSemaphoreCount = 1;
-                submitInfo.PWaitSemaphores = waitSemaphores;                       
+                submitInfo.PWaitSemaphores = waitSemaphores;
                 submitInfo.PWaitDstStageMask = waitStages;
 
                 submitInfo.CommandBufferCount = 1;
@@ -1885,7 +1890,7 @@ namespace VulkanTest
 
                 currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
             }
-             
+
             fixed (SwapchainKHR* swapChainPtr = &swapChain)
             {
                 PresentInfoKHR presentInfo = new();
@@ -1905,14 +1910,14 @@ namespace VulkanTest
         static readonly long startTime = DateTime.Now.Ticks;
 
         void UpdateUniformBuffer(uint currentImage)
-        {                    
+        {
             long currentTime = DateTime.Now.Ticks;
             float time = (float)TimeSpan.FromTicks(currentTime - startTime).TotalSeconds;
 
             UniformBufferObject ubo = new();
 
             ubo.model = Matrix4X4.CreateFromAxisAngle(
-                new Vector3D<float>(0, 0, 1), 
+                new Vector3D<float>(0, 0, 1),
                 time * Scalar.DegreesToRadians(90.0f));
 
             ubo.view = Matrix4X4.CreateLookAt(
@@ -1922,18 +1927,18 @@ namespace VulkanTest
 
             ubo.proj = Matrix4X4.CreatePerspectiveFieldOfView(
                 Scalar.DegreesToRadians(45.0f),
-                swapChainExtent.Width / (float)swapChainExtent.Height, 
-                0.1f, 
+                swapChainExtent.Width / (float)swapChainExtent.Height,
+                0.1f,
                 10.0f);
-           
+
             ubo.proj.M11 *= -1;
 
             void* videoMemory;
             ulong sizeBytes = (ulong)Marshal.SizeOf(ubo);
             vk.MapMemory(device, uniformBuffersMemory[currentFrame], 0, sizeBytes, 0, &videoMemory);
-       
+
             System.Buffer.MemoryCopy(&ubo, videoMemory, sizeBytes, sizeBytes);
-                    
+
             vk.UnmapMemory(device, uniformBuffersMemory[currentFrame]);
         }
 
@@ -1953,7 +1958,7 @@ namespace VulkanTest
             CreateRenderPass();
             CreateGraphicsPipeline();
             CreateDepthResources();
-            CreateFramebuffers();     
+            CreateFramebuffers();
         }
 
         void CleanupSwapChain()
@@ -1961,7 +1966,7 @@ namespace VulkanTest
             vk.DestroyImageView(device, depthImageView, null);
             vk.DestroyImage(device, depthImage, null);
             vk.FreeMemory(device, depthImageMemory, null);
-       
+
             foreach (var framebuffer in swapChainFramebuffers)
             {
                 vk.DestroyFramebuffer(device, framebuffer, null);
@@ -1976,7 +1981,7 @@ namespace VulkanTest
                 vk.DestroyImageView(device, imageView, null);
             }
 
-            vkSwapChain.DestroySwapchain(device, swapChain, null);            
+            vkSwapChain.DestroySwapchain(device, swapChain, null);
         }
 
         void Cleanup()
@@ -1987,7 +1992,7 @@ namespace VulkanTest
                 vk.DestroySemaphore(device, renderFinishedSemaphores[i], null);
                 vk.DestroyFence(device, inFlightFences[i], null);
             }
-           
+
             vk.DestroyCommandPool(device, commandPool, null);
 
             CleanupSwapChain();
@@ -2015,14 +2020,14 @@ namespace VulkanTest
             vk.DestroyDevice(device, null);
 
             vkSurface.DestroySurface(instance, surface, null);
-            debugUtils.DestroyDebugUtilsMessenger(instance, debugMessenger, null);            
+            debugUtils.DestroyDebugUtilsMessenger(instance, debugMessenger, null);
             vk.DestroyInstance(instance, null);
 
             window.Close();
             window.Dispose();
-          
+
         }
-      
+
     }
-    
+
 }
