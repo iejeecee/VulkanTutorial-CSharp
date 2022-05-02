@@ -1,1 +1,0 @@
-for /r %%f in (*.vert *.tesc *.tese *.geom *.frag *.comp) do C:\VulkanSDK\1.3.204.1\Bin\glslc.exe %%f -o $(OutDir)\%%~nf.spv
