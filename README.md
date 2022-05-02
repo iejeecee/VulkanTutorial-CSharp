@@ -1,4 +1,4 @@
-# VulkanTutorial
+# VulkanTutorial-CSharp
 Vulkan Tutorial from https://vulkan-tutorial.com/ implemented in C# using https://github.com/dotnet/Silk.NET
 
 Make sure the Vulkan SDK is installed to be able to compile shaders and use validation layers.
