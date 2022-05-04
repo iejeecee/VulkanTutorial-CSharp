@@ -13,17 +13,14 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using VulkanTest.VkOO;
 
 namespace VulkanTest
 {
 
     unsafe class VulkanTutorial
     {
-#if DEBUG
-        readonly bool isEnableValidationLayers = true;
-#else
-        readonly bool isEnableValidationLayers = false;
-#endif
+
         const int MAX_FRAMES_IN_FLIGHT = 2;
 
         uint currentFrame = 0;
@@ -32,16 +29,16 @@ namespace VulkanTest
         IWindow window;
         Vk vk;
         Instance instance;
+        VkInstance vkInstance;
+        VkSurfaceData surfaceData;
 
         SurfaceKHR surface;
         SwapchainKHR swapChain;
-        DebugUtilsMessengerEXT debugMessenger;
-        ExtDebugUtils debugUtils;
-
-        KhrSurface vkSurface;
+      
         KhrSwapchain vkSwapChain;
 
-        PhysicalDevice physicalDevice;
+        VkPhysicalDevice physicalDevice;
+        VkDevice vkDevice;
         Device device;
 
         Queue graphicsQueue;
@@ -88,45 +85,13 @@ namespace VulkanTest
         DescriptorPool descriptorPool;
         DescriptorSet[] descriptorSets;
 
-        string[] validationLayers;
-
-        private readonly string[][] validationLayerNamesPriorityList =
-        {
-            new [] { "VK_LAYER_KHRONOS_validation" },
-            new [] { "VK_LAYER_LUNARG_standard_validation" },
-            new []
-            {
-                "VK_LAYER_GOOGLE_threading",
-                "VK_LAYER_LUNARG_parameter_validation",
-                "VK_LAYER_LUNARG_object_tracker",
-                "VK_LAYER_LUNARG_core_validation",
-                "VK_LAYER_GOOGLE_unique_objects",
-            }
-        };
+        readonly string[] validationLayers = { "VK_LAYER_KHRONOS_validation" };
+      
+        string[] requiredExtensions;
         readonly string[] instanceExtensions = { ExtDebugUtils.ExtensionName };
         readonly string[] deviceExtensions = { KhrSwapchain.ExtensionName };
 
-        struct QueueFamilyIndices
-        {
-            public uint? GraphicsFamily { get; set; }
-            public uint? PresentFamily { get; set; }
-
-            public bool IsComplete
-            {
-                get
-                {
-                    return GraphicsFamily.HasValue && PresentFamily.HasValue;
-                }
-            }
-        }
-
-        struct SwapChainSupportDetails
-        {
-            public SurfaceCapabilitiesKHR Capabilities;
-            public SurfaceFormatKHR[] Formats;
-            public PresentModeKHR[] PresentModes;
-        }
-
+        
         readonly Vertex[] vertices = new Vertex[]
            {
                 new Vertex(new (-0.5f, -0.5f, 0.0f), new (1.0f, 0.0f, 0.0f), new (1.0f, 0.0f)),
@@ -146,19 +111,9 @@ namespace VulkanTest
         };
 
         void InitWindow()
-        {
-            var opts = WindowOptions.DefaultVulkan;
-
-            // Uncomment the line below to use SDL
-            // Window.PrioritizeSdl();
-
-            window = Window.Create(opts);
-            window.Initialize(); // For safety the window should be initialized before querying the VkSurface
-
-            if (window?.VkSurface is null)
-            {
-                throw new NotSupportedException("Windowing platform doesn't support Vulkan.");
-            }
+        {         
+            VkSurfaceData.CreateWindow("hallo", new Extent2D(800, 600), out window,
+                out requiredExtensions);
 
             window.FramebufferResize += OnFramebufferResize;
         }
@@ -188,9 +143,7 @@ namespace VulkanTest
 
         public void InitializeVulkan()
         {
-            CreateInstance();
-            CreateSurface();
-            SetupDebugMessenger();
+            CreateInstance();        
             PickPhysicalDevice();
             CreateLogicalDevice();
 
@@ -215,238 +168,26 @@ namespace VulkanTest
             CreateCommandBuffer();
             CreateSyncObjects();
         }
-
-        private void CreateSurface()
-        {
-            surface = window.VkSurface.Create<AllocationCallbacks>(instance.ToHandle(), null).ToSurface();
-        }
-
-        static void PopulateDebugMessengerCreateInfo(ref DebugUtilsMessengerCreateInfoEXT createInfo)
-        {
-            createInfo.SType = StructureType.DebugUtilsMessengerCreateInfoExt;
-            createInfo.MessageSeverity = DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityVerboseBitExt | DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityInfoBitExt | DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt | DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityErrorBitExt;
-            createInfo.MessageType = DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt | DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt | DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt;
-            createInfo.PfnUserCallback = new PfnDebugUtilsMessengerCallbackEXT(MessageCallback);
-            createInfo.PUserData = null;
-        }
-
-        void SetupDebugMessenger()
-        {
-            if (!isEnableValidationLayers) return;
-
-            if (!vk.TryGetInstanceExtension(instance, out debugUtils)) return;
-
-            DebugUtilsMessengerCreateInfoEXT createInfo = new();
-            PopulateDebugMessengerCreateInfo(ref createInfo);
-
-            if (debugUtils.CreateDebugUtilsMessenger(instance, in createInfo, null,
-                out debugMessenger) != Result.Success)
-            {
-                throw new Exception("Failed to create debug messenger.");
-            }
-
-        }
-
-        static uint MessageCallback(DebugUtilsMessageSeverityFlagsEXT severity, DebugUtilsMessageTypeFlagsEXT messageType, DebugUtilsMessengerCallbackDataEXT* callbackData, void* userData)
-        {
-            string messageSeverity;
-
-            if (severity < DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt) return Vk.False;
-
-            if (severity.HasFlag(DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityErrorBitExt))
-            {
-                messageSeverity = "error";
-            }
-            else if (severity.HasFlag(DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityInfoBitExt))
-            {
-                messageSeverity = "info";
-            }
-            else if (severity.HasFlag(DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityVerboseBitExt))
-            {
-                messageSeverity = "verbose";
-            }
-            else
-            {
-                messageSeverity = "warning";
-            }
-
-            string messageTypeStr;
-
-            if (messageType.HasFlag(DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt))
-            {
-                messageTypeStr = "";
-            }
-            else if (messageType.HasFlag(DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt))
-            {
-                messageTypeStr = "performance ";
-            }
-            else
-            {
-                messageTypeStr = "validation ";
-            }
-
-            Debug.Print($"VK ({messageTypeStr}{messageSeverity}): {Marshal.PtrToStringAnsi(new IntPtr(callbackData->PMessage))}");
-
-            return Vk.False;
-        }
-
-
+                  
         void CreateInstance()
-        {
-            vk = Vk.GetApi();
+        {          
+            var extensions = requiredExtensions.Concat(instanceExtensions).ToArray();
 
-            if (isEnableValidationLayers)
-            {
-                validationLayers = GetOptimalValidationLayers();
-                if (validationLayers is null)
-                {
-                    throw new NotSupportedException("Validation layers requested, but not available!");
-                }
-            }
+            vkInstance = new VkInstance("textureDemo", "none", Vk.Version11,
+                extensions, validationLayers);
 
-            ApplicationInfo appInfo = new()
-            {
-                SType = StructureType.ApplicationInfo,
-                PApplicationName = (byte*)Marshal.StringToHGlobalAnsi("Hello Triangle"),
-                ApplicationVersion = new Version32(1, 0, 0),
-                PEngineName = (byte*)Marshal.StringToHGlobalAnsi("No Engine"),
-                EngineVersion = new Version32(1, 0, 0),
-                ApiVersion = Vk.Version11
-            };
+            vk = vkInstance.Vk;
+            instance = vkInstance.Instance;
 
-            InstanceCreateInfo createInfo = new()
-            {
-                SType = StructureType.InstanceCreateInfo,
-                PApplicationInfo = &appInfo
-            };
-
-            var extensions = window.VkSurface.GetRequiredExtensions(out var extCount);
-
-            var newExtensions = stackalloc byte*[(int)(extCount + instanceExtensions.Length)];
-            for (var i = 0; i < extCount; i++)
-            {
-                newExtensions[i] = extensions[i];
-            }
-
-            for (var i = 0; i < instanceExtensions.Length; i++)
-            {
-                newExtensions[extCount + i] = (byte*)SilkMarshal.StringToPtr(instanceExtensions[i]);
-            }
-
-            extCount += (uint)instanceExtensions.Length;
-            createInfo.EnabledExtensionCount = extCount;
-            createInfo.PpEnabledExtensionNames = newExtensions;
-
-            DebugUtilsMessengerCreateInfoEXT messengerInfo = new();
-
-            if (isEnableValidationLayers == true)
-            {
-                createInfo.EnabledLayerCount = (uint)validationLayers.Length;
-                createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);
-
-                PopulateDebugMessengerCreateInfo(ref messengerInfo);
-
-                createInfo.PNext = &messengerInfo;
-            }
-            else
-            {
-                createInfo.EnabledLayerCount = 0;
-                createInfo.PNext = null;
-            }
-
-            Result result = vk.CreateInstance(in createInfo, null, out instance);
-
-            if (result != Result.Success)
-            {
-                throw new Exception("Failed to create instance!");
-            }
-
-            vk.CurrentInstance = instance;
-
-            if (!vk.TryGetInstanceExtension(instance, out vkSurface))
-            {
-                throw new NotSupportedException("KHR_surface extension not found.");
-            }
-
-            Marshal.FreeHGlobal((nint)appInfo.PApplicationName);
-            Marshal.FreeHGlobal((nint)appInfo.PEngineName);
-
+            surfaceData = new VkSurfaceData(window, vkInstance);
+          
+            surface = surfaceData.Surface;            
         }
-
-        private string[] GetOptimalValidationLayers()
-        {
-            uint nrLayers = 0;
-            vk.EnumerateInstanceLayerProperties(&nrLayers, null);
-
-            LayerProperties[] availableLayers = new LayerProperties[nrLayers];
-
-            vk.EnumerateInstanceLayerProperties(&nrLayers, availableLayers);
-
-            var availableLayerNames = availableLayers.Select(availableLayer => Marshal.PtrToStringAnsi((nint)availableLayer.LayerName)).ToArray();
-            foreach (var validationLayerNameSet in validationLayerNamesPriorityList)
-            {
-                if (validationLayerNameSet.All(validationLayerName => availableLayerNames.Contains(validationLayerName)))
-                {
-                    return validationLayerNameSet;
-                }
-            }
-
-            return null;
-        }
-
-        bool IsDeviceSuitable(PhysicalDevice device)
-        {
-            bool isExtensionsSupported = CheckDeviceExtensionSupport(device);
-
-            QueueFamilyIndices indices = FindQueueFamilies(device);
-
-            bool isSwapChainAdequate = false;
-            if (isExtensionsSupported)
-            {
-                SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
-                isSwapChainAdequate = (swapChainSupport.Formats != null) && (swapChainSupport.PresentModes != null);
-            }
-
-            vk.GetPhysicalDeviceFeatures(device, out PhysicalDeviceFeatures supportedFeatures);
-
-            return indices.IsComplete && isExtensionsSupported && isSwapChainAdequate
-                && supportedFeatures.SamplerAnisotropy; ;
-        }
-
-        bool CheckDeviceExtensionSupport(PhysicalDevice device)
-        {
-            uint extensionCount;
-            vk.EnumerateDeviceExtensionProperties(device, (byte*)null, &extensionCount, null);
-
-            ExtensionProperties[] availableExtensions = new ExtensionProperties[extensionCount];
-            vk.EnumerateDeviceExtensionProperties(device, (byte*)null, &extensionCount, availableExtensions);
-
-            HashSet<string> requiredExtensions = new(deviceExtensions);
-
-            foreach (var extension in availableExtensions)
-            {
-                requiredExtensions.Remove(Marshal.PtrToStringAnsi((nint)extension.ExtensionName));
-            }
-
-            return requiredExtensions.Count == 0;
-        }
-
+                        
         void PickPhysicalDevice()
         {
-            uint deviceCount = 0;
-            vk.EnumeratePhysicalDevices(instance, &deviceCount, null);
-
-            if (deviceCount == 0)
-            {
-                throw new Exception("failed to find GPUs with Vulkan support!");
-            }
-
-            PhysicalDevice[] devices = new PhysicalDevice[deviceCount];
-
-            vk.EnumeratePhysicalDevices(instance, &deviceCount, devices);
-
-            physicalDevice.Handle = IntPtr.Zero;
-
+            VkPhysicalDevice[] devices = vkInstance.EnumerateDevices();
+            
             foreach (var device in devices)
             {
                 if (IsDeviceSuitable(device))
@@ -456,137 +197,48 @@ namespace VulkanTest
                 }
             }
 
-            if (physicalDevice.Handle == IntPtr.Zero)
+            if (physicalDevice == null)
             {
                 throw new Exception("failed to find a suitable GPU!");
             }
 
         }
 
-        QueueFamilyIndices FindQueueFamilies(PhysicalDevice device)
+        bool IsDeviceSuitable(VkPhysicalDevice device)
         {
-            QueueFamilyIndices indices = new();
+            bool isExtensionsSupported = device.CheckExtensionsSupported(deviceExtensions);
 
-            uint queueFamilyCount = 0;
-            vk.GetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, null);
+            var indices = device.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
 
-            QueueFamilyProperties[] queueFamilies = new QueueFamilyProperties[queueFamilyCount];
-            vk.GetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
-
-            uint i = 0;
-            foreach (var queueFamily in queueFamilies)
+            bool isSwapChainAdequate = false;
+            if (isExtensionsSupported)
             {
-                if (queueFamily.QueueFlags.HasFlag(QueueFlags.QueueGraphicsBit))
-                {
-                    indices.GraphicsFamily = i;
-                }
-
-                vkSurface.GetPhysicalDeviceSurfaceSupport(device, i, surface, out Bool32 presentSupport);
-
-                if (presentSupport)
-                {
-                    indices.PresentFamily = i;
-                }
-
-                if (indices.IsComplete)
-                {
-                    break;
-                }
-
-                i++;
+                SwapChainSupportDetails swapChainSupport = device.QuerySwapChainSupport(surfaceData);
+                isSwapChainAdequate = (swapChainSupport.Formats != null) && (swapChainSupport.PresentModes != null);
             }
 
-            return indices;
+            return indices.IsComplete && isExtensionsSupported && isSwapChainAdequate
+                && device.SupportedFeatures.SamplerAnisotropy;
         }
 
         void CreateLogicalDevice()
         {
-            float queuePriority = 1.0f;
-
-            QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
-
-            HashSet<uint> uniqueQueueFamilies = new() { indices.GraphicsFamily.Value, indices.PresentFamily.Value };
-
-            using var mem = GlobalMemory.Allocate(uniqueQueueFamilies.Count * sizeof(DeviceQueueCreateInfo));
-            var queueCreateInfos = (DeviceQueueCreateInfo*)Unsafe.AsPointer(ref mem.GetPinnableReference());
-
-            int i = 0;
-
-            foreach (var queueId in uniqueQueueFamilies)
-            {
-                DeviceQueueCreateInfo queueCreateInfo = new()
-                {
-                    SType = StructureType.DeviceQueueCreateInfo,
-                    QueueFamilyIndex = queueId,
-                    QueueCount = 1,
-                    PQueuePriorities = &queuePriority
-                };
-
-                queueCreateInfos[i++] = queueCreateInfo;
-            };
+            QueueFamilyIndices indices = physicalDevice.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
 
             PhysicalDeviceFeatures deviceFeatures = new()
             {
                 SamplerAnisotropy = true
             };
 
-            DeviceCreateInfo createInfo = new()
-            {
-                SType = StructureType.DeviceCreateInfo,
-                PQueueCreateInfos = queueCreateInfos,
-                QueueCreateInfoCount = 1,
-                PEnabledFeatures = &deviceFeatures,
-                EnabledExtensionCount = (uint)deviceExtensions.Length,
-                PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(deviceExtensions)
-            };
+            vkDevice = new VkDevice(physicalDevice, indices, deviceFeatures, validationLayers, deviceExtensions);
 
-            if (isEnableValidationLayers)
-            {
-                createInfo.EnabledLayerCount = (uint)validationLayers.Length;
-                createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);
-            }
-            else
-            {
-                createInfo.EnabledLayerCount = 0;
-            }
+            device = vkDevice.Device;
 
-            if (vk.CreateDevice(physicalDevice, in createInfo, null, out device) != Result.Success)
-            {
-                throw new Exception("failed to create logical device!");
-            }
-
-            vk.GetDeviceQueue(device, indices.GraphicsFamily.Value, 0, out graphicsQueue);
-            vk.GetDeviceQueue(device, indices.PresentFamily.Value, 0, out presentQueue);
-
+            graphicsQueue = vkDevice.GetDeviceQueue(indices.GraphicsFamily.Value);
+            presentQueue = vkDevice.GetDeviceQueue(indices.PresentFamily.Value);
+          
         }
-
-        SwapChainSupportDetails QuerySwapChainSupport(PhysicalDevice device)
-        {
-            SwapChainSupportDetails details = new();
-
-            vkSurface.GetPhysicalDeviceSurfaceCapabilities(device, surface, out details.Capabilities);
-
-            uint formatCount;
-            vkSurface.GetPhysicalDeviceSurfaceFormats(device, surface, &formatCount, null);
-
-            if (formatCount > 0)
-            {
-                details.Formats = new SurfaceFormatKHR[formatCount];
-                vkSurface.GetPhysicalDeviceSurfaceFormats(device, surface, &formatCount, details.Formats);
-            }
-
-            uint presentModeCount;
-            vkSurface.GetPhysicalDeviceSurfacePresentModes(device, surface, &presentModeCount, null);
-
-            if (presentModeCount != 0)
-            {
-                details.PresentModes = new PresentModeKHR[presentModeCount];
-                vkSurface.GetPhysicalDeviceSurfacePresentModes(device, surface, &presentModeCount, details.PresentModes);
-            }
-
-            return details;
-        }
-
+        
         SurfaceFormatKHR ChooseSwapSurfaceFormat(SurfaceFormatKHR[] availableFormats)
         {
             foreach (var availableFormat in availableFormats)
@@ -637,7 +289,7 @@ namespace VulkanTest
 
         void CreateSwapChain()
         {
-            SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
+            SwapChainSupportDetails swapChainSupport = physicalDevice.QuerySwapChainSupport(surfaceData);
 
             SurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.Formats);
             PresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.PresentModes);
@@ -663,7 +315,7 @@ namespace VulkanTest
                 ImageUsage = ImageUsageFlags.ImageUsageColorAttachmentBit
             };
 
-            QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+            QueueFamilyIndices indices = physicalDevice.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
 
             uint* queueFamilyIndices = stackalloc uint[2];
 
@@ -1088,7 +740,7 @@ namespace VulkanTest
 
         void CreateCommandPool()
         {
-            QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalDevice);
+            QueueFamilyIndices queueFamilyIndices = physicalDevice.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
 
             CommandPoolCreateInfo poolInfo = new()
             {
@@ -1133,9 +785,8 @@ namespace VulkanTest
         {
             foreach (Format format in candidates)
             {
-                vk.GetPhysicalDeviceFormatProperties(physicalDevice, format,
-                    out FormatProperties props);
-
+                FormatProperties props = physicalDevice.GetFormatProperties(format);
+             
                 if (tiling == ImageTiling.Linear && (props.LinearTilingFeatures & features) == features)
                 {
                     return format;
@@ -1401,8 +1052,7 @@ namespace VulkanTest
 
         void CreateTextureSampler()
         {
-            vk.GetPhysicalDeviceProperties(physicalDevice, out PhysicalDeviceProperties properties);
-
+           
             SamplerCreateInfo samplerInfo = new()
             {
                 SType = StructureType.SamplerCreateInfo,
@@ -1412,7 +1062,7 @@ namespace VulkanTest
                 AddressModeV = SamplerAddressMode.Repeat,
                 AddressModeW = SamplerAddressMode.Repeat,
                 AnisotropyEnable = true,
-                MaxAnisotropy = properties.Limits.MaxSamplerAnisotropy,
+                MaxAnisotropy = physicalDevice.Properties.Limits.MaxSamplerAnisotropy,
                 BorderColor = BorderColor.IntOpaqueBlack,
                 UnnormalizedCoordinates = false,
                 CompareEnable = false,
@@ -1558,14 +1208,11 @@ namespace VulkanTest
         }
 
         uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
-        {
-            vk.GetPhysicalDeviceMemoryProperties(physicalDevice,
-                out PhysicalDeviceMemoryProperties memProperties);
-
-            for (int i = 0; i < memProperties.MemoryTypeCount; i++)
+        {            
+            for (int i = 0; i < physicalDevice.MemoryProperties.MemoryTypeCount; i++)
             {
                 if ((typeFilter & (i << 1)) != 0 &&
-                    (memProperties.MemoryTypes[i].PropertyFlags & properties) == properties)
+                    (physicalDevice.MemoryProperties.MemoryTypes[i].PropertyFlags & properties) == properties)
                 {
                     return (uint)i;
                 }
@@ -2017,12 +1664,11 @@ namespace VulkanTest
             vk.DestroyBuffer(device, vertexBuffer, null);
             vk.FreeMemory(device, vertexBufferMemory, null);
 
-            vk.DestroyDevice(device, null);
+            vkDevice.Dispose();
 
-            vkSurface.DestroySurface(instance, surface, null);
-            debugUtils.DestroyDebugUtilsMessenger(instance, debugMessenger, null);
-            vk.DestroyInstance(instance, null);
-
+            surfaceData.Dispose();
+            vkInstance.Dispose();
+   
             window.Close();
             window.Dispose();
 
