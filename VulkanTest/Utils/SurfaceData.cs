@@ -12,31 +12,27 @@ using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using Silk.NET.Vulkan.Extensions.KHR;
 using Silk.NET.Windowing;
+using VulkanTest.VulkanObject;
 
-namespace VulkanTest.VkOO
+namespace VulkanTest.Utils
 {
-    unsafe class VkSurfaceData : IDisposable
+    unsafe class SurfaceData : IDisposable
     {
-        KhrSurface khrSurface;
-        SurfaceKHR surface;
-        Instance instance;
+        VkSurfaceKHR surface;   
         Vk vk;
+        Extent2D extent;
         private bool disposedValue;
 
-        public VkSurfaceData(IWindow window, VkInstance vkInstance)
-        {
-            instance = vkInstance.Instance;
-            vk = vkInstance.Vk;
+        public SurfaceData(IWindow window, VkInstance instance)
+        {           
+            vk = Vk.GetApi();
+            Extent = new Extent2D((uint)window.FramebufferSize.X, (uint)window.FramebufferSize.Y);
 
-            surface = window.VkSurface.Create<AllocationCallbacks>(instance.ToHandle(), null).ToSurface();
-
-            if (!vk.TryGetInstanceExtension(instance, out khrSurface))
-            {
-                throw new NotSupportedException("KHR_surface extension not found.");
-            }
+            surface = new VkSurfaceKHR(window, instance);
+            
         }
 
-        public static void CreateWindow(string windowName, Extent2D size, 
+        public static void CreateWindow(string windowName, Extent2D size,
             out IWindow window, out string[] requiredExtensions)
         {
             var opts = WindowOptions.DefaultVulkan;
@@ -61,11 +57,11 @@ namespace VulkanTest.VkOO
             {
                 requiredExtensions[i] = Marshal.PtrToStringUTF8((nint)reqExtensions[i]);
             }
-           
+
         }
-       
-        public KhrSurface KhrSurface { get => khrSurface; protected set => khrSurface = value; }
-        public SurfaceKHR Surface { get => surface; protected set => surface = value; }
+
+        public VkSurfaceKHR Surface { get => surface; protected set => surface = value; }      
+        public Extent2D Extent { get => extent; protected set => extent = value; }
 
         protected virtual void Dispose(bool disposing)
         {
@@ -76,7 +72,7 @@ namespace VulkanTest.VkOO
                     // TODO: dispose managed state (managed objects)
                 }
 
-                khrSurface.DestroySurface(instance, surface, null);
+                surface.Dispose();
 
                 // TODO: free unmanaged resources (unmanaged objects) and override finalizer
                 // TODO: set large fields to null
@@ -85,10 +81,10 @@ namespace VulkanTest.VkOO
         }
 
         // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkSurfaceData()
+        ~SurfaceData()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()

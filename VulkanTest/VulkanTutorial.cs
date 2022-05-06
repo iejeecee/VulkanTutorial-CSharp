@@ -13,7 +13,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using VulkanTest.VkOO;
+using VulkanTest.Utils;
+using VulkanTest.VulkanObject;
 
 namespace VulkanTest
 {
@@ -27,31 +28,25 @@ namespace VulkanTest
         bool isFramebufferResized = false;
 
         IWindow window;
-        Vk vk;
-        Instance instance;
-        VkInstance vkInstance;
-        VkSurfaceData surfaceData;
+        Vk vk;     
 
-        SurfaceKHR surface;
-        SwapchainKHR swapChain;
-      
-        KhrSwapchain vkSwapChain;
+        VkInstance instance;
+        DebugUtilsMessengerEXT debugMessenger;
 
+        SurfaceData surfaceData;
+        SwapChainData swapChainData;
+  
         VkPhysicalDevice physicalDevice;
-        VkDevice vkDevice;
-        Device device;
-
-        Queue graphicsQueue;
-        Queue presentQueue;
-
-        Image[] swapChainImages;
-        Format swapChainImageFormat;
+        VkDevice device;
+       
+        VkQueue graphicsQueue;
+        VkQueue presentQueue;
+     
         Extent2D swapChainExtent;
-
-        ImageView[] swapChainImageViews;
+    
         Framebuffer[] swapChainFramebuffers;
 
-        CommandPool commandPool;
+        VkCommandPool commandPool;      
         CommandBuffer[] commandBuffers;
 
         RenderPass renderPass;
@@ -112,7 +107,7 @@ namespace VulkanTest
 
         void InitWindow()
         {         
-            VkSurfaceData.CreateWindow("hallo", new Extent2D(800, 600), out window,
+            SurfaceData.CreateWindow("hallo", new Extent2D(800, 600), out window,
                 out requiredExtensions);
 
             window.FramebufferResize += OnFramebufferResize;
@@ -131,7 +126,7 @@ namespace VulkanTest
             window.Render += Window_Render;
             window.Run();
 
-            vk.DeviceWaitIdle(device);
+            device.WaitIdle();
 
             Cleanup();
         }
@@ -143,12 +138,10 @@ namespace VulkanTest
 
         public void InitializeVulkan()
         {
-            CreateInstance();        
-            PickPhysicalDevice();
+            CreateInstance();                   
             CreateLogicalDevice();
 
-            CreateSwapChain();
-            CreateImageViews();
+            CreateSwapChain();         
             CreateRenderPass();
             CreateDescriptorSetLayout();
             CreateGraphicsPipeline();
@@ -170,211 +163,53 @@ namespace VulkanTest
         }
                   
         void CreateInstance()
-        {          
+        {
+            vk = Vk.GetApi();
+
             var extensions = requiredExtensions.Concat(instanceExtensions).ToArray();
 
-            vkInstance = new VkInstance("textureDemo", "none", Vk.Version11,
-                extensions, validationLayers);
+            instance = new VkInstance("textureDemo", "none", Vk.Version11,
+                extensions, validationLayers, SU.MakeDebugUtilsMessengerCreateInfoEXT());
 
-            vk = vkInstance.Vk;
-            instance = vkInstance.Instance;
-
-            surfaceData = new VkSurfaceData(window, vkInstance);
-          
-            surface = surfaceData.Surface;            
-        }
+            debugMessenger = instance.CreateDebugUtilsMessengerEXT(SU.MakeDebugUtilsMessengerCreateInfoEXT());
                         
-        void PickPhysicalDevice()
-        {
-            VkPhysicalDevice[] devices = vkInstance.EnumerateDevices();
-            
-            foreach (var device in devices)
-            {
-                if (IsDeviceSuitable(device))
-                {
-                    physicalDevice = device;
-                    break;
-                }
-            }
+            surfaceData = new SurfaceData(window, instance);
 
-            if (physicalDevice == null)
-            {
-                throw new Exception("failed to find a suitable GPU!");
-            }
-
+            physicalDevice = SU.PickPhysicalDevice(instance, surfaceData, deviceExtensions);
         }
-
-        bool IsDeviceSuitable(VkPhysicalDevice device)
-        {
-            bool isExtensionsSupported = device.CheckExtensionsSupported(deviceExtensions);
-
-            var indices = device.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
-
-            bool isSwapChainAdequate = false;
-            if (isExtensionsSupported)
-            {
-                SwapChainSupportDetails swapChainSupport = device.QuerySwapChainSupport(surfaceData);
-                isSwapChainAdequate = (swapChainSupport.Formats != null) && (swapChainSupport.PresentModes != null);
-            }
-
-            return indices.IsComplete && isExtensionsSupported && isSwapChainAdequate
-                && device.SupportedFeatures.SamplerAnisotropy;
-        }
-
+                                       
         void CreateLogicalDevice()
         {
-            QueueFamilyIndices indices = physicalDevice.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
+            QueueFamilyIndices indices = SU.FindGraphicsAndPresentQueueFamilyIndex(physicalDevice, surfaceData);
 
             PhysicalDeviceFeatures deviceFeatures = new()
             {
                 SamplerAnisotropy = true
             };
 
-            vkDevice = new VkDevice(physicalDevice, indices, deviceFeatures, validationLayers, deviceExtensions);
-
-            device = vkDevice.Device;
-
-            graphicsQueue = vkDevice.GetDeviceQueue(indices.GraphicsFamily.Value);
-            presentQueue = vkDevice.GetDeviceQueue(indices.PresentFamily.Value);
-          
+            device = SU.CreateDevice(instance, physicalDevice, indices, deviceFeatures, validationLayers, deviceExtensions);
+            
+            graphicsQueue = device.GetQueue(indices.GraphicsFamily.Value);
+            presentQueue = device.GetQueue(indices.PresentFamily.Value);          
         }
-        
-        SurfaceFormatKHR ChooseSwapSurfaceFormat(SurfaceFormatKHR[] availableFormats)
-        {
-            foreach (var availableFormat in availableFormats)
-            {
-                if (availableFormat.Format == Format.B8G8R8A8Srgb &&
-                    availableFormat.ColorSpace == ColorSpaceKHR.ColorSpaceSrgbNonlinearKhr)
-                {
-                    return availableFormat;
-                }
-            }
-
-            return availableFormats[0];
-        }
-
-        PresentModeKHR ChooseSwapPresentMode(PresentModeKHR[] availablePresentModes)
-        {
-            foreach (var availablePresentMode in availablePresentModes)
-            {
-                if (availablePresentMode == PresentModeKHR.PresentModeMailboxKhr)
-                {
-                    return availablePresentMode;
-                }
-            }
-
-            return PresentModeKHR.PresentModeFifoKhr;
-        }
-
-        Extent2D ChooseSwapExtent(SurfaceCapabilitiesKHR capabilities)
-        {
-            if (capabilities.CurrentExtent.Width != uint.MaxValue)
-            {
-                return capabilities.CurrentExtent;
-            }
-            else
-            {
-                Extent2D actualExtent = new()
-                {
-                    Width = (uint)window.FramebufferSize.X,
-                    Height = (uint)window.FramebufferSize.Y
-                };
-
-                actualExtent.Width = Math.Clamp(actualExtent.Width, capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width);
-                actualExtent.Height = Math.Clamp(actualExtent.Height, capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height);
-
-                return actualExtent;
-            }
-        }
-
+                                
         void CreateSwapChain()
         {
-            SwapChainSupportDetails swapChainSupport = physicalDevice.QuerySwapChainSupport(surfaceData);
+            QueueFamilyIndices indices = SU.FindGraphicsAndPresentQueueFamilyIndex(physicalDevice, surfaceData);
 
-            SurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.Formats);
-            PresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.PresentModes);
-            Extent2D extent = ChooseSwapExtent(swapChainSupport.Capabilities);
+            swapChainData = new(
+              physicalDevice,
+              device,
+              surfaceData,
+              ImageUsageFlags.ImageUsageColorAttachmentBit | ImageUsageFlags.ImageUsageTransferSrcBit,
+              new SwapchainKHR(null),
+              indices.GraphicsFamily.Value,
+              indices.PresentFamily.Value);
+         
+            swapChainExtent = swapChainData.SwapchainExtent;
 
-            uint imageCount = swapChainSupport.Capabilities.MinImageCount + 1;
-
-            if (swapChainSupport.Capabilities.MaxImageCount > 0 &&
-                imageCount > swapChainSupport.Capabilities.MaxImageCount)
-            {
-                imageCount = swapChainSupport.Capabilities.MaxImageCount;
-            }
-
-            SwapchainCreateInfoKHR createInfo = new()
-            {
-                SType = StructureType.SwapchainCreateInfoKhr,
-                Surface = surface,
-                MinImageCount = imageCount,
-                ImageFormat = surfaceFormat.Format,
-                ImageColorSpace = surfaceFormat.ColorSpace,
-                ImageExtent = extent,
-                ImageArrayLayers = 1,
-                ImageUsage = ImageUsageFlags.ImageUsageColorAttachmentBit
-            };
-
-            QueueFamilyIndices indices = physicalDevice.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
-
-            uint* queueFamilyIndices = stackalloc uint[2];
-
-            queueFamilyIndices[0] = indices.GraphicsFamily.Value;
-            queueFamilyIndices[1] = indices.PresentFamily.Value;
-
-            if (indices.GraphicsFamily != indices.PresentFamily)
-            {
-                createInfo.ImageSharingMode = SharingMode.Concurrent;
-                createInfo.QueueFamilyIndexCount = 2;
-                createInfo.PQueueFamilyIndices = queueFamilyIndices;
-            }
-            else
-            {
-                createInfo.ImageSharingMode = SharingMode.Exclusive;
-                createInfo.QueueFamilyIndexCount = 0; // Optional
-                createInfo.PQueueFamilyIndices = null; // Optional
-            }
-
-            createInfo.PreTransform = swapChainSupport.Capabilities.CurrentTransform;
-            createInfo.CompositeAlpha = CompositeAlphaFlagsKHR.CompositeAlphaOpaqueBitKhr;
-            createInfo.PresentMode = presentMode;
-            createInfo.Clipped = new Bool32(true);
-            createInfo.OldSwapchain = new SwapchainKHR();
-
-            if (!vk.TryGetDeviceExtension(instance, vk.CurrentDevice.Value, out vkSwapChain))
-            {
-                throw new NotSupportedException("KHR_swapchain extension not found.");
-            }
-
-            if (vkSwapChain.CreateSwapchain(device, in createInfo, null, out swapChain) != Result.Success)
-            {
-                throw new Exception("failed to create swap chain!");
-            }
-
-            vkSwapChain.GetSwapchainImages(device, swapChain, &imageCount, null);
-            swapChainImages = new Image[imageCount];
-            vkSwapChain.GetSwapchainImages(device, swapChain, &imageCount, swapChainImages);
-
-            swapChainImageFormat = surfaceFormat.Format;
-            swapChainExtent = extent;
         }
-
-        void CreateImageViews()
-        {
-            swapChainImageViews = new ImageView[swapChainImages.Length];
-
-            for (int i = 0; i < swapChainImages.Length; i++)
-            {
-                swapChainImageViews[i] = CreateImageView(swapChainImages[i], swapChainImageFormat,
-                    ImageAspectFlags.ImageAspectColorBit);
-            }
-        }
-
-        byte[] LoadShader(string filename)
-        {
-            return File.ReadAllBytes(filename);
-        }
-
+          
         ShaderModule CreateShaderModule(byte[] code)
         {
             fixed (byte* codePtr = code)
@@ -437,8 +272,8 @@ namespace VulkanTest
 
         void CreateGraphicsPipeline()
         {
-            var vertShaderCode = LoadShader("vertshader.spv");
-            var fragShaderCode = LoadShader("fragshader.spv");
+            var vertShaderCode = File.ReadAllBytes("vertshader.spv");
+            var fragShaderCode = File.ReadAllBytes("fragshader.spv");
 
             ShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
             ShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
@@ -626,7 +461,7 @@ namespace VulkanTest
         {
             AttachmentDescription colorAttachment = new()
             {
-                Format = swapChainImageFormat,
+                Format = swapChainData.ColorFormat,
                 Samples = SampleCountFlags.SampleCount1Bit,
                 LoadOp = AttachmentLoadOp.Clear,
                 StoreOp = AttachmentStoreOp.Store,
@@ -709,13 +544,13 @@ namespace VulkanTest
 
         void CreateFramebuffers()
         {
-            swapChainFramebuffers = new Framebuffer[swapChainImageViews.Length];
+            swapChainFramebuffers = new Framebuffer[swapChainData.ImageViews.Length];
 
             for (int i = 0; i < swapChainFramebuffers.Length; i++)
             {
                 ImageView* attachments = stackalloc[]
                     {
-                        swapChainImageViews[i],
+                        swapChainData.ImageViews[i],
                         depthImageView
                     };
 
@@ -740,7 +575,7 @@ namespace VulkanTest
 
         void CreateCommandPool()
         {
-            QueueFamilyIndices queueFamilyIndices = physicalDevice.FindGraphicsAndPresentQueueFamilyIndex(surfaceData);
+            QueueFamilyIndices queueFamilyIndices = SU.FindGraphicsAndPresentQueueFamilyIndex(physicalDevice, surfaceData);
 
             CommandPoolCreateInfo poolInfo = new()
             {
@@ -749,11 +584,7 @@ namespace VulkanTest
                 QueueFamilyIndex = queueFamilyIndices.GraphicsFamily.Value
             };
 
-            if (vk.CreateCommandPool(device, in poolInfo, null, out commandPool) != Result.Success)
-            {
-                throw new Exception("failed to create command pool!");
-            }
-
+            commandPool = device.CreateCommandPool(poolInfo);        
         }
 
         void CreateDepthResources()
@@ -1483,12 +1314,10 @@ namespace VulkanTest
         void DrawFrame()
         {
 
-            vk.WaitForFences(device, 1, in inFlightFences[currentFrame], true, ulong.MaxValue);
-
-            uint imageIndex = 0;
-
-            var result = vkSwapChain.AcquireNextImage(device, swapChain, ulong.MaxValue,
-                imageAvailableSemaphores[currentFrame], new Fence(null), ref imageIndex);
+            vk.WaitForFences(device, 1, inFlightFences[currentFrame], true, ulong.MaxValue);
+           
+            (uint imageIndex, Result result) = device.AquireNextImage(swapChainData.SwapChain, ulong.MaxValue,
+                imageAvailableSemaphores[currentFrame], new Fence(null));
 
             if (result == Result.ErrorOutOfDateKhr || result == Result.SuboptimalKhr || isFramebufferResized)
             {
@@ -1538,19 +1367,19 @@ namespace VulkanTest
                 currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
             }
 
-            fixed (SwapchainKHR* swapChainPtr = &swapChain)
-            {
-                PresentInfoKHR presentInfo = new();
-                presentInfo.SType = StructureType.PresentInfoKhr;
-                presentInfo.WaitSemaphoreCount = 1;
-                presentInfo.PWaitSemaphores = &signalSemaphore;
-                presentInfo.SwapchainCount = 1;
-                presentInfo.PSwapchains = swapChainPtr;
-                presentInfo.PImageIndices = &imageIndex;
-                presentInfo.PResults = null;
+            SwapchainKHR swapChain = swapChainData.SwapChain;
+           
+            PresentInfoKHR presentInfo = new();
+            presentInfo.SType = StructureType.PresentInfoKhr;
+            presentInfo.WaitSemaphoreCount = 1;
+            presentInfo.PWaitSemaphores = &signalSemaphore;
+            presentInfo.SwapchainCount = 1;
+            presentInfo.PSwapchains = &swapChain;
+            presentInfo.PImageIndices = &imageIndex;
+            presentInfo.PResults = null;
 
-                vkSwapChain.QueuePresent(presentQueue, in presentInfo);
-            }
+            presentQueue.PresentKHR(swapChainData.SwapChain, presentInfo);
+            
 
         }
 
@@ -1596,12 +1425,11 @@ namespace VulkanTest
                 window.DoEvents();
             }
 
-            vk.DeviceWaitIdle(device);
+            device.WaitIdle();
 
             CleanupSwapChain();
 
-            CreateSwapChain();
-            CreateImageViews();
+            CreateSwapChain();         
             CreateRenderPass();
             CreateGraphicsPipeline();
             CreateDepthResources();
@@ -1623,12 +1451,7 @@ namespace VulkanTest
             vk.DestroyPipelineLayout(device, pipelineLayout, null);
             vk.DestroyRenderPass(device, renderPass, null);
 
-            foreach (var imageView in swapChainImageViews)
-            {
-                vk.DestroyImageView(device, imageView, null);
-            }
-
-            vkSwapChain.DestroySwapchain(device, swapChain, null);
+            swapChainData.Clear(device);      
         }
 
         void Cleanup()
@@ -1640,8 +1463,8 @@ namespace VulkanTest
                 vk.DestroyFence(device, inFlightFences[i], null);
             }
 
-            vk.DestroyCommandPool(device, commandPool, null);
-
+            device.DestroyCommandPool(commandPool);
+         
             CleanupSwapChain();
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -1664,10 +1487,11 @@ namespace VulkanTest
             vk.DestroyBuffer(device, vertexBuffer, null);
             vk.FreeMemory(device, vertexBufferMemory, null);
 
-            vkDevice.Dispose();
+            device.Dispose();
 
             surfaceData.Dispose();
-            vkInstance.Dispose();
+            instance.DestroyDebugUtilsMessengerEXT(debugMessenger);
+            instance.Dispose();
    
             window.Close();
             window.Dispose();
