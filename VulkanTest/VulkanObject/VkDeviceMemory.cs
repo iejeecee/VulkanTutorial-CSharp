@@ -18,31 +18,48 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkCommandPool : IDisposable
+    unsafe class VkDeviceMemory : IDisposable
     {
         Vk vk;
         VkDevice device;
 
-        CommandPool commandPool;
+        DeviceMemory memory;
         private bool disposedValue;
 
-        public VkCommandPool(VkDevice device, in CommandPoolCreateInfo info)
+        public VkDeviceMemory(VkDevice device, in MemoryAllocateInfo allocateInfo)
         {
             vk = Vk.GetApi();
             this.device = device;
-
-            Result result = vk.CreateCommandPool(device, in info, null, out commandPool);
+           
+            Result result = vk.AllocateMemory(device, allocateInfo, null, out memory);
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating command pool");
+                throw new ResultException("Error allocating device memory");
             }
 
         }
 
-     
-             
-        public static implicit operator CommandPool(VkCommandPool c) => c.commandPool;
+        public void* MapMemory(ulong offset, ulong size, uint flags = 0)
+        {
+            void* data;
+
+            Result result = vk.MapMemory(device, this, offset, size, flags, &data);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error mapping device memory");
+            }
+
+            return data;
+        }
+
+        public void UnmapMemory()
+        {
+            vk.UnmapMemory(device, this);           
+        }
+
+        public static implicit operator DeviceMemory(VkDeviceMemory m) => m.memory;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -53,16 +70,16 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyCommandPool(device, commandPool, null);
+                vk.FreeMemory(device, memory, null);
                 disposedValue = true;
             }
         }
 
         // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkCommandPool()
+        ~VkDeviceMemory()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()

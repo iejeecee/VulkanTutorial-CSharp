@@ -20,9 +20,11 @@ namespace VulkanTest.VulkanObject
     unsafe class VkQueue
     {
         Queue queue;
+        Vk vk;
 
         public VkQueue(Queue queue)
         {
+            vk = Vk.GetApi();
             this.queue = queue;
         }
 
@@ -31,6 +33,31 @@ namespace VulkanTest.VulkanObject
             KhrSwapchain khrSwapchain = swapchain.KhrSwapchain;
 
             khrSwapchain.QueuePresent(this, in presentInfo);
+        }
+
+        public void Submit(SubmitInfo submit, Fence fence)
+        {
+            var result = vk.QueueSubmit(this, 1, submit, fence);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error submitting queue");
+            }
+        }
+
+        public void Submit(Span<SubmitInfo> submits, Fence fence)
+        {
+            var result = vk.QueueSubmit(this, submits, fence);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error submitting queue");
+            }
+        }
+
+        public void WaitIdle()
+        {
+            vk.QueueWaitIdle(this);
         }
 
         public static implicit operator Queue(VkQueue q) => q.queue;

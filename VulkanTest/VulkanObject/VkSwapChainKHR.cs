@@ -26,10 +26,10 @@ namespace VulkanTest.VulkanObject
 
         private bool disposedValue;
         
-        public VkSwapChainKHR(VkInstance instance, VkDevice device, in SwapchainCreateInfoKHR createInfo)
+        public VkSwapChainKHR(VkDevice device, in SwapchainCreateInfoKHR createInfo)
         {
             Vk vk = Vk.GetApi();
-            this.instance = instance;
+            this.instance = device.Instance;
             this.device = device;
 
             if (!vk.TryGetDeviceExtension(instance, device, out khrSwapchain))
@@ -42,6 +42,29 @@ namespace VulkanTest.VulkanObject
                 throw new Exception("failed to create swap chain!");
             }
 
+        }
+
+        public Image[] GetImagesKHR()
+        {            
+            uint imageCount;
+
+            khrSwapchain.GetSwapchainImages(device, swapChain, &imageCount, null);
+
+            Image[] swapChainImages = new Image[imageCount];
+            khrSwapchain.GetSwapchainImages(device, swapChain, &imageCount, swapChainImages);
+
+            // Cannot return VkImage here because we are not the owner of the image.
+            // Wrapping it will lead to it being disposed incorrectly         
+            return swapChainImages;
+        }
+
+        public (uint imageIndex, Result result) AquireNextImage(ulong timeout, in Semaphore semaphore, in Fence fence)
+        {      
+            uint imageIndex = 0;
+
+            var result = khrSwapchain.AcquireNextImage(device, swapChain, timeout, semaphore, fence, ref imageIndex);
+
+            return (imageIndex, result);
         }
 
         public void Clear()

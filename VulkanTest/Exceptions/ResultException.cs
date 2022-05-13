@@ -9,7 +9,7 @@ namespace VulkanTest.Exceptions
     class ResultException : Exception
     {
         public ResultException(string error) :
-            base("Invalid result while executing: " + error)
+            base(error)
         {
 
 

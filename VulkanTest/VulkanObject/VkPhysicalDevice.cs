@@ -22,21 +22,13 @@ namespace VulkanTest.VulkanObject
     {
         PhysicalDevice device;
         Vk vk;
-
-        PhysicalDeviceMemoryProperties memProperties;
-        PhysicalDeviceProperties properties;
-        PhysicalDeviceFeatures supportedFeatures;
+          
         string[] extensions;
 
         public VkPhysicalDevice(PhysicalDevice device)
         {
             this.device = device;
-            vk = Vk.GetApi();
-
-            vk.GetPhysicalDeviceMemoryProperties(device, out memProperties);
-            vk.GetPhysicalDeviceProperties(device, out properties);
-            vk.GetPhysicalDeviceFeatures(device, out supportedFeatures);
-            
+            vk = Vk.GetApi();                                
         }
   
         public FormatProperties GetFormatProperties(Format format)
@@ -59,7 +51,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfaceSupport(device, queueFamilyIndex, surface, out Bool32 presentSupport);
             if (result != Result.Success)
             {
-                throw new ResultException(nameof(GetSurfaceSupportKHR));
+                throw new ResultException("Error getting supported surfaces by physical device");
             }
 
             return presentSupport;
@@ -74,7 +66,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfaceFormats(device, surface, &surfaceFormatCount, null);
             if (result != Result.Success)
             {
-                throw new ResultException(nameof(GetSurfaceFormatsKHR));
+                throw new ResultException("Error getting physical device supported surface formats");
             }
 
             SurfaceFormatKHR[] surfaceFormats = new SurfaceFormatKHR[surfaceFormatCount];
@@ -82,7 +74,7 @@ namespace VulkanTest.VulkanObject
             result = khrSurface.GetPhysicalDeviceSurfaceFormats(device, surface, &surfaceFormatCount, surfaceFormats);
             if (result != Result.Success)
             {
-                throw new ResultException(nameof(GetSurfaceFormatsKHR));
+                throw new ResultException("Error getting physical device supported surface formats");
             }
 
             return surfaceFormats;
@@ -95,7 +87,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfaceCapabilities(device, surface, out SurfaceCapabilitiesKHR surfaceCapabilities);
             if (result != Result.Success)
             {
-                throw new ResultException(nameof(GetSurfaceCapabilitiesKHR));
+                throw new ResultException("Error getting physical device supported surface capabilities");
             }
 
             return surfaceCapabilities;
@@ -110,7 +102,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfacePresentModes(device, surface, &presentModesCount, null);
             if (result != Result.Success)
             {
-                throw new ResultException(nameof(GetSurfacePresentModesKHR));
+                throw new ResultException("Error getting physical device supported surface present modes");
             }
 
             PresentModeKHR[] presentModes = new PresentModeKHR[presentModesCount];
@@ -118,34 +110,31 @@ namespace VulkanTest.VulkanObject
             result = khrSurface.GetPhysicalDeviceSurfacePresentModes(device, surface, &presentModesCount, presentModes);
             if (result != Result.Success)
             {
-                throw new ResultException(nameof(GetSurfacePresentModesKHR));
+                throw new ResultException("Error getting physical device supported surface present modes");
             }
 
             return presentModes;
         }
 
-        public PhysicalDeviceFeatures SupportedFeatures
+        public PhysicalDeviceFeatures GetSupportedFeatures()
         {
-            get
-            {               
-                return supportedFeatures;
-            }
+            vk.GetPhysicalDeviceFeatures(device, out PhysicalDeviceFeatures supportedFeatures);
+
+            return supportedFeatures;            
         }
 
-        public PhysicalDeviceProperties Properties
+        public PhysicalDeviceProperties GetProperties()
         {
-            get
-            {               
-                return properties;
-            }
+            vk.GetPhysicalDeviceProperties(device, out PhysicalDeviceProperties properties);
+
+            return properties;
         }
 
-        public PhysicalDeviceMemoryProperties MemoryProperties
-        {
-            get
-            {                
-                return memProperties;
-            }
+        public PhysicalDeviceMemoryProperties GetMemoryProperties()
+        {            
+            vk.GetPhysicalDeviceMemoryProperties(device, out PhysicalDeviceMemoryProperties memProperties);
+
+            return memProperties;
         }
 
         public string[] EnumerateExtensionProperties()

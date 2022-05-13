@@ -18,31 +18,41 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkCommandPool : IDisposable
+    unsafe class VkBuffer : IDisposable
     {
         Vk vk;
         VkDevice device;
 
-        CommandPool commandPool;
+        Silk.NET.Vulkan.Buffer buffer;
         private bool disposedValue;
 
-        public VkCommandPool(VkDevice device, in CommandPoolCreateInfo info)
+        public VkBuffer(VkDevice device, in BufferCreateInfo info)
         {
             vk = Vk.GetApi();
             this.device = device;
 
-            Result result = vk.CreateCommandPool(device, in info, null, out commandPool);
+            Result result = vk.CreateBuffer(device, in info, null, out buffer);
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating command pool");
+                throw new ResultException("Error creating buffer");
             }
 
         }
 
-     
-             
-        public static implicit operator CommandPool(VkCommandPool c) => c.commandPool;
+        public void BindMemory(VkDeviceMemory memory, ulong memoryOffset = 0)
+        {
+            vk.BindBufferMemory(device, this, memory, memoryOffset);
+        }
+
+        public MemoryRequirements GetMemoryRequirements()
+        {
+            vk.GetBufferMemoryRequirements(device, this, out MemoryRequirements memoryRequirements);
+
+            return memoryRequirements;
+        }
+
+        public static implicit operator Silk.NET.Vulkan.Buffer(VkBuffer b) => b.buffer;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -53,16 +63,16 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyCommandPool(device, commandPool, null);
+                vk.DestroyBuffer(device, buffer, null);
                 disposedValue = true;
             }
         }
 
         // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkCommandPool()
+        ~VkBuffer()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()
@@ -73,3 +83,4 @@ namespace VulkanTest.VulkanObject
         }
     }
 }
+

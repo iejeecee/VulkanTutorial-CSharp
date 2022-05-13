@@ -14,7 +14,7 @@ namespace VulkanTest.VulkanObject
         Vk vk;
         Instance instance;
              
-        ExtDebugUtils debugUtils;    
+        
         readonly string[] validationLayers;
         private bool disposedValue;
 
@@ -92,30 +92,7 @@ namespace VulkanTest.VulkanObject
             Marshal.FreeHGlobal((nint)appInfo.PEngineName);
                   
         }
-        
-        public DebugUtilsMessengerEXT CreateDebugUtilsMessengerEXT(in DebugUtilsMessengerCreateInfoEXT createInfo)
-        {
-            if (!vk.TryGetInstanceExtension(instance, out debugUtils))
-            {
-                throw new Exception("Failed to create debug messenger.");
-            }
-
-            DebugUtilsMessengerEXT debugMessenger;
-
-            if (debugUtils.CreateDebugUtilsMessenger(instance, in createInfo, null,
-                out debugMessenger) != Result.Success)
-            {
-                throw new Exception("Failed to create debug messenger.");
-            }
-
-            return debugMessenger;
-        }
-
-        public void DestroyDebugUtilsMessengerEXT(in DebugUtilsMessengerEXT debugMessenger)
-        {
-            debugUtils.DestroyDebugUtilsMessenger(instance, debugMessenger, null);
-        }
-        
+                           
         string[] CheckAvailableValidationLayers(string[] layers)
         {
             uint nrLayers = 0;

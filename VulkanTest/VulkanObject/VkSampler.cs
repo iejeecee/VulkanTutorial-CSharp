@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,37 +17,28 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkDevice : IDisposable
+    unsafe class VkSampler : IDisposable
     {
-        readonly VkInstance instance;     
-        readonly Vk vk;
-        Device device;
+        Sampler sampler;
+        Vk vk;
+        VkDevice device;
         private bool disposedValue;
 
-        public VkInstance Instance => instance;
-
-        public VkDevice(VkInstance instance, Device device)           
-        {          
+        public VkSampler(VkDevice device, in SamplerCreateInfo createInfo)
+        {
             vk = Vk.GetApi();
-          
             this.device = device;
-            this.instance = instance;
+
+            Result result = vk.CreateSampler(device, createInfo, null, out sampler);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error creating sampler");
+            }
         }
 
-        public void WaitIdle()
-        {
-            vk.DeviceWaitIdle(device);
-        }
+        public static implicit operator Sampler(VkSampler s) => s.sampler;
 
-        public VkQueue GetQueue(uint queueFamilyIndex, uint queueIndex = 0)
-        {
-            vk.GetDeviceQueue(device, queueFamilyIndex, queueIndex, out Queue queue);
-
-            return new VkQueue(queue);
-        }
-                                  
-        public static implicit operator Device(VkDevice d) => d.device;
-             
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)
@@ -58,14 +48,14 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyDevice(device, null);
-
+                vk.DestroySampler(device, this, null);
+                
                 disposedValue = true;
             }
         }
 
         // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkDevice()
+        ~VkSampler()
         {
              // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
              Dispose(disposing: false);

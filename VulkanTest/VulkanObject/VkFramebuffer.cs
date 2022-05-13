@@ -18,37 +18,30 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkDevice : IDisposable
+    unsafe class VkFramebuffer : IDisposable
     {
-        readonly VkInstance instance;     
-        readonly Vk vk;
-        Device device;
+        Vk vk;
+        VkDevice device;
+
+        Framebuffer framebuffer;
         private bool disposedValue;
-
-        public VkInstance Instance => instance;
-
-        public VkDevice(VkInstance instance, Device device)           
-        {          
+       
+        public VkFramebuffer(VkDevice device, in FramebufferCreateInfo createInfo)
+        {
             vk = Vk.GetApi();
-          
             this.device = device;
-            this.instance = instance;
-        }
 
-        public void WaitIdle()
-        {
-            vk.DeviceWaitIdle(device);
-        }
+            Result result = vk.CreateFramebuffer(device, createInfo, null, out framebuffer);
 
-        public VkQueue GetQueue(uint queueFamilyIndex, uint queueIndex = 0)
-        {
-            vk.GetDeviceQueue(device, queueFamilyIndex, queueIndex, out Queue queue);
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error creating framebuffer");
+            }
 
-            return new VkQueue(queue);
         }
-                                  
-        public static implicit operator Device(VkDevice d) => d.device;
-             
+       
+        public static implicit operator Framebuffer(VkFramebuffer f) => f.framebuffer;
+
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)
@@ -58,17 +51,16 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyDevice(device, null);
-
+                vk.DestroyFramebuffer(device, framebuffer, null);
                 disposedValue = true;
             }
         }
 
-        // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkDevice()
+        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        ~VkFramebuffer()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()
@@ -79,3 +71,4 @@ namespace VulkanTest.VulkanObject
         }
     }
 }
+

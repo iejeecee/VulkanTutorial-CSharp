@@ -22,7 +22,7 @@ namespace VulkanTest.Utils
         Extent2D swapchainExtent;
         VkSwapChainKHR swapChain;
         Image[] images;
-        ImageView[] imageViews;
+        VkImageView[] imageViews;
 
         public SwapChainData(
             VkPhysicalDevice physicalDevice,
@@ -47,12 +47,8 @@ namespace VulkanTest.Utils
             }
             else
             {
-                Extent2D actualExtent = new()
-                {
-                    Width = surfaceData.Extent.Width,
-                    Height = surfaceData.Extent.Height
-                };
-
+                Extent2D actualExtent = new(surfaceData.Extent.Width, surfaceData.Extent.Height);
+              
                 swapchainExtent.Width = Math.Clamp(actualExtent.Width, surfaceCapabilities.MinImageExtent.Width, surfaceCapabilities.MaxImageExtent.Width);
                 swapchainExtent.Height = Math.Clamp(actualExtent.Height, surfaceCapabilities.MinImageExtent.Height, surfaceCapabilities.MaxImageExtent.Height);
             
@@ -71,23 +67,21 @@ namespace VulkanTest.Utils
 
             PresentModeKHR presentMode = SU.PickPresentMode(physicalDevice.GetSurfacePresentModesKHR(surfaceData.Surface));
 
-            SwapchainCreateInfoKHR createInfo = new()
-            {
-                SType = StructureType.SwapchainCreateInfoKhr,
-                Surface = surfaceData.Surface,
-                MinImageCount = surfaceCapabilities.MinImageCount,
-                ImageFormat = colorFormat,
-                ImageColorSpace = surfaceFormat.ColorSpace,
-                ImageExtent = swapchainExtent,
-                ImageArrayLayers = 1,
-                ImageUsage = usage,
-                ImageSharingMode = SharingMode.Exclusive,
-                PreTransform = preTransform,
-                CompositeAlpha = compositeAlpha,
-                PresentMode = presentMode,
-                OldSwapchain = oldSwapChain,
-                Clipped = true,
-            };
+            SwapchainCreateInfoKHR createInfo = new(                            
+                surface: surfaceData.Surface,
+                minImageCount: surfaceCapabilities.MinImageCount,
+                imageFormat: colorFormat,
+                imageColorSpace: surfaceFormat.ColorSpace,
+                imageExtent: swapchainExtent,
+                imageArrayLayers: 1,
+                imageUsage: usage,
+                imageSharingMode: SharingMode.Exclusive,
+                preTransform: preTransform,
+                compositeAlpha: compositeAlpha,
+                presentMode: presentMode,
+                oldSwapchain: oldSwapChain,
+                clipped: true
+            );
 
             if (graphicsQueueFamilyIndex != presentQueueFamilyIndex)
             {
@@ -100,42 +94,50 @@ namespace VulkanTest.Utils
                 createInfo.PQueueFamilyIndices = queueFamilyIndices;
             }
 
-            swapChain = device.CreateSwapchainKHR(createInfo);
-            images = device.GetSwapchainImagesKHR(swapChain);
+            swapChain = new VkSwapChainKHR(device, createInfo);
+            images = swapChain.GetImagesKHR();
 
-            imageViews = new ImageView[images.Length];
+            imageViews = new VkImageView[images.Length];
 
             for (int i = 0; i < images.Length; i++)
             {
-                ImageViewCreateInfo viewInfo = new()
-                {
-                    SType = StructureType.ImageViewCreateInfo,
-                    Image = images[i],
-                    ViewType = ImageViewType.ImageViewType2D,
-                    Format = colorFormat
-                };
-                viewInfo.SubresourceRange.AspectMask = ImageAspectFlags.ImageAspectColorBit;
-                viewInfo.SubresourceRange.BaseMipLevel = 0;
-                viewInfo.SubresourceRange.LevelCount = 1;
-                viewInfo.SubresourceRange.BaseArrayLayer = 0;
-                viewInfo.SubresourceRange.LayerCount = 1;
+                ImageViewCreateInfo viewInfo = new(                                 
+                    image: images[i],
+                    viewType: ImageViewType.ImageViewType2D,
+                    format: colorFormat,
+                    subresourceRange: new(ImageAspectFlags.ImageAspectColorBit, 0, 1, 0, 1)
+                );
+            
+                imageViews[i] = new VkImageView(device, viewInfo);
 
-                imageViews[i] = device.CreateImageView(viewInfo);
+                /*DebugUtilsObjectNameInfoEXT info = new(
+                    objectType: ObjectType.ImageView,
+                    objectHandle: ((ImageView)imageViews[i]).Handle,
+                    pObjectName: (byte*)Marshal.StringToHGlobalAnsi($"Swapchain Image View {i}"));
+
+                VulkanTutorial.debugUtils.SetDebugUtilsObjectName(device, info);
+
+                info = new(
+                    objectType: ObjectType.Image,
+                    objectHandle: ((Image)images[i]).Handle,
+                    pObjectName: (byte*)Marshal.StringToHGlobalAnsi($"Swapchain Image {i}"));
+
+                VulkanTutorial.debugUtils.SetDebugUtilsObjectName(device, info);*/
             }
            
         }
 
         public void Clear(VkDevice device)
-        {
+        {            
             foreach (var imageView in imageViews)
             {
-                device.DestroyImageView(imageView);
+                imageView.Dispose();
             }
 
-            device.DestroySwapchainKHR(swapChain);
+            swapChain.Dispose();
         }
 
-        public ImageView[] ImageViews { get => imageViews; protected set => imageViews = value; }
+        public VkImageView[] ImageViews { get => imageViews; protected set => imageViews = value; }
         public Image[] Images { get => images; protected set => images = value; }
         public VkSwapChainKHR SwapChain { get => swapChain; protected set => swapChain = value; }
         public Format ColorFormat { get => colorFormat; protected set => colorFormat = value; }

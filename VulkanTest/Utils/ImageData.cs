@@ -18,9 +18,13 @@ using VulkanTest.VulkanObject;
 
 namespace VulkanTest.Utils
 {
-    unsafe class ImageData
+    unsafe class ImageData : IDisposable
     {
-        Format format;
+        public Format format;
+        public VkImage image;
+        public VkDeviceMemory deviceMemory;
+        public VkImageView imageView;
+        private bool disposedValue;
 
         public ImageData(
             VkPhysicalDevice physicalDevice,
@@ -31,35 +35,70 @@ namespace VulkanTest.Utils
             ImageUsageFlags usage,
             ImageLayout initialLayout,
             MemoryPropertyFlags memoryProperties,
-            ImageAspectFlags aspectMask)     
+            ImageAspectFlags aspectMask)
         {
             this.format = format;
 
-            ImageCreateInfo imageCreateInfo = new()                
+            ImageCreateInfo imageCreateInfo = new(             
+                imageType: ImageType.ImageType2D,
+                mipLevels: 1,
+                arrayLayers: 1,
+                format: format,
+                tiling: tiling,
+                initialLayout: initialLayout,
+                usage: usage | ImageUsageFlags.ImageUsageSampledBit,
+                sharingMode: SharingMode.Exclusive,
+                samples: SampleCountFlags.SampleCount1Bit,
+                extent: new(extent.Width, extent.Height, 1)
+            );
+           
+            image = new VkImage(device, imageCreateInfo);
+
+            deviceMemory = SU.AllocateDeviceMemory(device, physicalDevice.GetMemoryProperties(),
+                image.GetMemoryRequirements(), memoryProperties);
+
+            image.BindMemory(deviceMemory);
+
+            ImageViewCreateInfo viewInfo = new(
+                image: image,
+                viewType: ImageViewType.ImageViewType2D,
+                format: format,
+                subresourceRange: new(aspectMask, 0, 1, 0, 1)
+            );
+        
+            imageView = new VkImageView(device, viewInfo);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
             {
-                SType = StructureType.ImageCreateInfo,
-                ImageType = ImageType.ImageType2D,
-                MipLevels = 1,
-                ArrayLayers = 1,
-                Format = format,
-                Tiling = tiling,
-                InitialLayout = initialLayout,
-                Usage = usage | ImageUsageFlags.ImageUsageSampledBit,
-                SharingMode = SharingMode.Exclusive,
-                Samples = SampleCountFlags.SampleCount1Bit
-            };
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects)
+                }
 
-            imageCreateInfo.Extent.Width = extent.Width;
-            imageCreateInfo.Extent.Height = extent.Height;
-            imageCreateInfo.Extent.Depth = 1;
-
-            /*deviceMemory = vk::su::allocateDeviceMemory(device, physicalDevice.GetMemoryProperties(), device.GetImageMemoryRequirements(image), memoryProperties);
-
-                device.BindImageMemory(image, deviceMemory, 0);
-
-                vk::ImageViewCreateInfo imageViewCreateInfo( { }, image, vk::ImageViewType::e2D, format, { }, { aspectMask, 0, 1, 0, 1 } );
-                imageView = device.createImageView(imageViewCreateInfo);*/
+                image.Dispose();
+                deviceMemory.Dispose();
+                imageView.Dispose();
+              
+                disposedValue = true;
             }
         }
-    
+
+        // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+         ~ImageData()
+        {
+             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+             Dispose(disposing: false);
+        }
+
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+    }
+
 }

@@ -21,6 +21,7 @@ namespace VulkanTest
 
     unsafe class VulkanTutorial
     {
+        public static ExtDebugUtils debugUtils;
 
         const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -31,7 +32,7 @@ namespace VulkanTest
         Vk vk;     
 
         VkInstance instance;
-        DebugUtilsMessengerEXT debugMessenger;
+        VkDebugUtilsMessengerEXT debugMessenger;
 
         SurfaceData surfaceData;
         SwapChainData swapChainData;
@@ -44,10 +45,10 @@ namespace VulkanTest
      
         Extent2D swapChainExtent;
     
-        Framebuffer[] swapChainFramebuffers;
+        VkFramebuffer[] swapChainFramebuffers;
 
         VkCommandPool commandPool;      
-        CommandBuffer[] commandBuffers;
+        VkCommandBuffer[] commandBuffers;
 
         RenderPass renderPass;
         DescriptorSetLayout descriptorSetLayout;
@@ -59,24 +60,14 @@ namespace VulkanTest
         Semaphore[] renderFinishedSemaphores;
         Fence[] inFlightFences;
 
-        Silk.NET.Vulkan.Buffer vertexBuffer;
-        DeviceMemory vertexBufferMemory;
+        BufferData vertexBuffer;
+        BufferData indexBuffer;
+        BufferData[] uniformBuffers;
 
-        Silk.NET.Vulkan.Buffer indexBuffer;
-        DeviceMemory indexBufferMemory;
-
-        Silk.NET.Vulkan.Buffer[] uniformBuffers;
-        DeviceMemory[] uniformBuffersMemory;
-
-        Image textureImage;
-        DeviceMemory textureImageMemory;
-        ImageView textureImageView;
-        Sampler textureSampler;
-
-        Image depthImage;
-        DeviceMemory depthImageMemory;
-        ImageView depthImageView;
-
+        TextureData textureData;
+    
+        DepthBufferData depthBuffer;
+    
         DescriptorPool descriptorPool;
         DescriptorSet[] descriptorSets;
 
@@ -85,7 +76,6 @@ namespace VulkanTest
         string[] requiredExtensions;
         readonly string[] instanceExtensions = { ExtDebugUtils.ExtensionName };
         readonly string[] deviceExtensions = { KhrSwapchain.ExtensionName };
-
         
         readonly Vertex[] vertices = new Vertex[]
            {
@@ -107,7 +97,7 @@ namespace VulkanTest
 
         void InitWindow()
         {         
-            SurfaceData.CreateWindow("hallo", new Extent2D(800, 600), out window,
+            SurfaceData.CreateWindow("hello world", new Extent2D(800, 600), out window,
                 out requiredExtensions);
 
             window.FramebufferResize += OnFramebufferResize;
@@ -149,9 +139,7 @@ namespace VulkanTest
 
             CreateDepthResources();
             CreateFramebuffers();
-            CreateTextureImage();
-            CreateTextureImageView();
-            CreateTextureSampler();
+            CreateTextureImage();                 
             CreateVertexBuffer();
             CreateIndexBuffer();
             CreateUniformBuffers();
@@ -170,9 +158,10 @@ namespace VulkanTest
 
             instance = new VkInstance("textureDemo", "none", Vk.Version11,
                 extensions, validationLayers, SU.MakeDebugUtilsMessengerCreateInfoEXT());
-
-            debugMessenger = instance.CreateDebugUtilsMessengerEXT(SU.MakeDebugUtilsMessengerCreateInfoEXT());
-                        
+         
+            debugMessenger = new VkDebugUtilsMessengerEXT(instance, SU.MakeDebugUtilsMessengerCreateInfoEXT());
+            debugUtils = debugMessenger.DebugUtils;
+ 
             surfaceData = new SurfaceData(window, instance);
 
             physicalDevice = SU.PickPhysicalDevice(instance, surfaceData, deviceExtensions);
@@ -207,19 +196,16 @@ namespace VulkanTest
               indices.PresentFamily.Value);
          
             swapChainExtent = swapChainData.SwapchainExtent;
-
         }
           
         ShaderModule CreateShaderModule(byte[] code)
         {
             fixed (byte* codePtr = code)
             {
-                ShaderModuleCreateInfo createInfo = new()
-                {
-                    SType = StructureType.ShaderModuleCreateInfo,
-                    CodeSize = (nuint)code.Length,
-                    PCode = (uint*)codePtr
-                };
+                ShaderModuleCreateInfo createInfo = new(                                 
+                    codeSize: (nuint)code.Length,
+                    pCode: (uint*)codePtr
+                );
 
                 if (vk.CreateShaderModule(device, in createInfo, null, out ShaderModule shaderModule) != Result.Success)
                 {
@@ -234,7 +220,7 @@ namespace VulkanTest
         void CreateDescriptorSetLayout()
         {
             DescriptorSetLayoutBinding uboLayoutBinding = new()
-            {
+            {                
                 Binding = 0,
                 DescriptorType = DescriptorType.UniformBuffer,
                 DescriptorCount = 1,
@@ -544,32 +530,25 @@ namespace VulkanTest
 
         void CreateFramebuffers()
         {
-            swapChainFramebuffers = new Framebuffer[swapChainData.ImageViews.Length];
+            swapChainFramebuffers = new VkFramebuffer[swapChainData.ImageViews.Length];
 
+            ImageView* attachments = stackalloc ImageView[2];
+                   
             for (int i = 0; i < swapChainFramebuffers.Length; i++)
             {
-                ImageView* attachments = stackalloc[]
-                    {
-                        swapChainData.ImageViews[i],
-                        depthImageView
-                    };
+                attachments[0] = swapChainData.ImageViews[i];
+                attachments[1] = depthBuffer.imageView;
 
-                FramebufferCreateInfo framebufferInfo = new()
-                {
-                    SType = StructureType.FramebufferCreateInfo,
-                    RenderPass = renderPass,
-                    AttachmentCount = 2,
-                    PAttachments = attachments,
-                    Width = swapChainExtent.Width,
-                    Height = swapChainExtent.Height,
-                    Layers = 1
-                };
+                FramebufferCreateInfo framebufferInfo = new(                                  
+                    renderPass: renderPass,
+                    attachmentCount: 2,
+                    pAttachments: attachments,
+                    width: swapChainExtent.Width,
+                    height: swapChainExtent.Height,
+                    layers: 1
+                );
 
-                if (vk.CreateFramebuffer(device, in framebufferInfo, null, out swapChainFramebuffers[i]) != Result.Success)
-                {
-                    throw new Exception("failed to create framebuffer!");
-                }
-
+                swapChainFramebuffers[i] = new VkFramebuffer(device, framebufferInfo);                
             }
         }
 
@@ -584,23 +563,19 @@ namespace VulkanTest
                 QueueFamilyIndex = queueFamilyIndices.GraphicsFamily.Value
             };
 
-            commandPool = device.CreateCommandPool(poolInfo);        
+            commandPool = new VkCommandPool(device, poolInfo);        
         }
 
         void CreateDepthResources()
         {
             Format depthFormat = FindDepthFormat();
 
-            CreateImage(swapChainExtent.Width, swapChainExtent.Height, depthFormat,
-                ImageTiling.Optimal, ImageUsageFlags.ImageUsageDepthStencilAttachmentBit,
-                MemoryPropertyFlags.MemoryPropertyDeviceLocalBit,
-                out depthImage, out depthImageMemory);
-
-            depthImageView = CreateImageView(depthImage, depthFormat,
-                ImageAspectFlags.ImageAspectDepthBit);
-
-            TransitionImageLayout(depthImage, depthFormat, ImageLayout.Undefined, ImageLayout.DepthStencilAttachmentOptimal);
-
+            depthBuffer = new DepthBufferData(physicalDevice, device, depthFormat, swapChainExtent);
+        
+            SU.OneTimeSubmit(device, commandPool, graphicsQueue,
+                commandBuffer => SU.SetImageLayout(commandBuffer, depthBuffer.image, depthFormat,
+                ImageLayout.Undefined, ImageLayout.DepthStencilAttachmentOptimal));
+           
         }
 
         Format FindDepthFormat()
@@ -644,406 +619,44 @@ namespace VulkanTest
             using var image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(customConfig, "texture.jpg");
 
             ulong imageSize = (ulong)(image.Width * image.Height * 4);
-
-            CreateBuffer(imageSize, BufferUsageFlags.BufferUsageTransferSrcBit,
-                MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                MemoryPropertyFlags.MemoryPropertyHostCoherentBit,
-                out Silk.NET.Vulkan.Buffer stagingBuffer,
-                out DeviceMemory stagingBufferMemory);
-
+          
             if (!image.DangerousTryGetSinglePixelMemory(out Memory<SixLabors.ImageSharp.PixelFormats.Rgba32> memory))
             {
                 throw new Exception("Error loading texture image");
             }
 
-            using (var pinHandle = memory.Pin())
-            {
-                void* srcData = pinHandle.Pointer;
+            textureData = new TextureData(physicalDevice, device,
+              new Extent2D((uint)image.Width, (uint)image.Height),
+              ImageUsageFlags.ImageUsageTransferDstBit | ImageUsageFlags.ImageUsageSampledBit,
+              FormatFeatureFlags.FormatFeatureSampledImageBit, false, true);
 
-                void* data;
-                vk.MapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-                System.Buffer.MemoryCopy(srcData, data, imageSize, imageSize);
-                vk.UnmapMemory(device, stagingBufferMemory);
-            }
+            using var pinHandle = memory.Pin();
+            void* srcData = pinHandle.Pointer;
 
-            CreateImage((uint)image.Width, (uint)image.Height,
-                Format.R8G8B8A8Srgb, ImageTiling.Optimal,
-                ImageUsageFlags.ImageUsageTransferDstBit | ImageUsageFlags.ImageUsageSampledBit,
-                MemoryPropertyFlags.MemoryPropertyDeviceLocalBit, out textureImage, out textureImageMemory);
-
-            TransitionImageLayout(textureImage, Format.R8G8B8A8Srgb, ImageLayout.Undefined, ImageLayout.TransferDstOptimal);
-            CopyBufferToImage(stagingBuffer, textureImage, (uint)image.Width, (uint)image.Height);
-            TransitionImageLayout(textureImage, Format.R8G8B8A8Srgb, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
-
-            vk.DestroyBuffer(device, stagingBuffer, null);
-            vk.FreeMemory(device, stagingBufferMemory, null);
+            SU.OneTimeSubmit(device, commandPool, graphicsQueue,
+                commandBuffer => textureData.SetImage(commandBuffer, srcData, imageSize));
         }
-
-        void CreateImage(
-            uint width,
-            uint height,
-            Format format,
-            ImageTiling tiling,
-            ImageUsageFlags usage,
-            MemoryPropertyFlags properties,
-            out Image image,
-            out DeviceMemory imageMemory
-            )
-        {
-
-            ImageCreateInfo imageInfo = new()
-            {
-                SType = StructureType.ImageCreateInfo,
-                ImageType = ImageType.ImageType2D,
-                MipLevels = 1,
-                ArrayLayers = 1,
-                Format = format,
-                Tiling = tiling,
-                InitialLayout = ImageLayout.Undefined,
-                Usage = usage,
-                SharingMode = SharingMode.Exclusive,
-                Samples = SampleCountFlags.SampleCount1Bit
-            };
-
-            imageInfo.Extent.Width = width;
-            imageInfo.Extent.Height = height;
-            imageInfo.Extent.Depth = 1;
-
-            if (vk.CreateImage(device, in imageInfo, null, out image) != Result.Success)
-            {
-                throw new Exception("failed to create image!");
-            }
-
-            vk.GetImageMemoryRequirements(device, image,
-                out MemoryRequirements memRequirements);
-
-            MemoryAllocateInfo allocInfo = new()
-            {
-                SType = StructureType.MemoryAllocateInfo,
-                AllocationSize = memRequirements.Size,
-                MemoryTypeIndex = FindMemoryType(memRequirements.MemoryTypeBits,
-                properties)
-            };
-
-            if (vk.AllocateMemory(device, in allocInfo, null, out imageMemory) != Result.Success)
-            {
-                throw new Exception("failed to allocate image memory!");
-            }
-
-            vk.BindImageMemory(device, image, imageMemory, 0);
-        }
-
-        void TransitionImageLayout(
-            Image image,
-            Format format,
-            ImageLayout oldLayout,
-            ImageLayout newLayout
-            )
-        {
-
-            CommandBuffer commandBuffer = BeginSingleTimeCommands();
-
-            ImageMemoryBarrier barrier = new();
-
-            barrier.SType = StructureType.ImageMemoryBarrier;
-            barrier.OldLayout = oldLayout;
-            barrier.NewLayout = newLayout;
-            barrier.SrcQueueFamilyIndex = Vk.QueueFamilyIgnored;
-            barrier.DstQueueFamilyIndex = Vk.QueueFamilyIgnored;
-            barrier.Image = image;
-            barrier.SubresourceRange.BaseMipLevel = 0;
-            barrier.SubresourceRange.LevelCount = 1;
-            barrier.SubresourceRange.BaseArrayLayer = 0;
-            barrier.SubresourceRange.LayerCount = 1;
-
-            if (newLayout == ImageLayout.DepthStencilAttachmentOptimal)
-            {
-                barrier.SubresourceRange.AspectMask = ImageAspectFlags.ImageAspectDepthBit;
-
-                if (HasStencilComponent(format))
-                {
-                    barrier.SubresourceRange.AspectMask |= ImageAspectFlags.ImageAspectStencilBit;
-                }
-            }
-            else
-            {
-                barrier.SubresourceRange.AspectMask = ImageAspectFlags.ImageAspectColorBit; ;
-            }
-
-            PipelineStageFlags sourceStage;
-            PipelineStageFlags destinationStage;
-
-            if (oldLayout == ImageLayout.Undefined &&
-                newLayout == ImageLayout.TransferDstOptimal)
-            {
-                barrier.SrcAccessMask = 0;
-                barrier.DstAccessMask = AccessFlags.AccessTransferWriteBit;
-
-                sourceStage = PipelineStageFlags.PipelineStageTopOfPipeBit;
-                destinationStage = PipelineStageFlags.PipelineStageTransferBit;
-            }
-            else if (oldLayout == ImageLayout.TransferDstOptimal &&
-                newLayout == ImageLayout.ShaderReadOnlyOptimal)
-            {
-                barrier.SrcAccessMask = AccessFlags.AccessTransferWriteBit;
-                barrier.DstAccessMask = AccessFlags.AccessShaderReadBit;
-
-                sourceStage = PipelineStageFlags.PipelineStageTransferBit;
-                destinationStage = PipelineStageFlags.PipelineStageFragmentShaderBit;
-            }
-            else if (oldLayout == ImageLayout.Undefined &&
-                newLayout == ImageLayout.DepthStencilAttachmentOptimal)
-            {
-                barrier.SrcAccessMask = 0;
-                barrier.DstAccessMask = AccessFlags.AccessDepthStencilAttachmentReadBit |
-                    AccessFlags.AccessDepthStencilAttachmentWriteBit;
-
-                sourceStage = PipelineStageFlags.PipelineStageTopOfPipeBit;
-                destinationStage = PipelineStageFlags.PipelineStageEarlyFragmentTestsBit;
-            }
-            else
-            {
-                throw new Exception("unsupported layout transition!");
-            }
-
-            vk.CmdPipelineBarrier(
-                commandBuffer,
-                sourceStage, destinationStage,
-                0,
-                0, null,
-                0, null,
-                1, in barrier
-            );
-
-            EndSingleTimeCommands(commandBuffer);
-        }
-
-        void CopyBufferToImage(
-            Silk.NET.Vulkan.Buffer buffer,
-            Image image,
-            uint width,
-            uint height
-            )
-        {
-            CommandBuffer commandBuffer = BeginSingleTimeCommands();
-
-            BufferImageCopy region = new()
-            {
-                BufferOffset = 0,
-                BufferRowLength = 0,
-                BufferImageHeight = 0,
-                ImageOffset = new Offset3D(),
-                ImageExtent = new Extent3D(width, height, 1)
-            };
-            region.ImageSubresource.AspectMask = ImageAspectFlags.ImageAspectColorBit;
-            region.ImageSubresource.MipLevel = 0;
-            region.ImageSubresource.BaseArrayLayer = 0;
-            region.ImageSubresource.LayerCount = 1;
-
-            vk.CmdCopyBufferToImage(
-                commandBuffer,
-                buffer,
-                image,
-                ImageLayout.TransferDstOptimal,
-                1,
-                in region
-            );
-
-            EndSingleTimeCommands(commandBuffer);
-        }
-
-        void CreateTextureImageView()
-        {
-            textureImageView = CreateImageView(textureImage, Format.R8G8B8A8Srgb,
-                ImageAspectFlags.ImageAspectColorBit);
-        }
-
-        ImageView CreateImageView(Image image, Format format, ImageAspectFlags aspectFlags)
-        {
-            ImageViewCreateInfo viewInfo = new()
-            {
-                SType = StructureType.ImageViewCreateInfo,
-                Image = image,
-                ViewType = ImageViewType.ImageViewType2D,
-                Format = format
-            };
-            viewInfo.SubresourceRange.AspectMask = aspectFlags;
-            viewInfo.SubresourceRange.BaseMipLevel = 0;
-            viewInfo.SubresourceRange.LevelCount = 1;
-            viewInfo.SubresourceRange.BaseArrayLayer = 0;
-            viewInfo.SubresourceRange.LayerCount = 1;
-
-            if (vk.CreateImageView(device, in viewInfo, null, out ImageView imageView) != Result.Success)
-            {
-                throw new Exception("failed to create texture image view!");
-            }
-
-            return imageView;
-        }
-
-        void CreateTextureSampler()
-        {
-           
-            SamplerCreateInfo samplerInfo = new()
-            {
-                SType = StructureType.SamplerCreateInfo,
-                MagFilter = Filter.Linear,
-                MinFilter = Filter.Linear,
-                AddressModeU = SamplerAddressMode.Repeat,
-                AddressModeV = SamplerAddressMode.Repeat,
-                AddressModeW = SamplerAddressMode.Repeat,
-                AnisotropyEnable = true,
-                MaxAnisotropy = physicalDevice.Properties.Limits.MaxSamplerAnisotropy,
-                BorderColor = BorderColor.IntOpaqueBlack,
-                UnnormalizedCoordinates = false,
-                CompareEnable = false,
-                CompareOp = CompareOp.Always,
-                MipmapMode = SamplerMipmapMode.Linear,
-                MipLodBias = 0.0f,
-                MinLod = 0.0f,
-                MaxLod = 0.0f
-            };
-
-            if (vk.CreateSampler(device, in samplerInfo, null, out textureSampler) != Result.Success)
-            {
-                throw new Exception("failed to create texture sampler!");
-            }
-        }
-
+                                        
         void CreateVertexBuffer()
         {
             uint bufferSize = (uint)(Marshal.SizeOf(vertices[0]) * vertices.Length);
 
-            CreateBuffer(bufferSize, BufferUsageFlags.BufferUsageTransferSrcBit,
-                MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                    MemoryPropertyFlags.MemoryPropertyHostCoherentBit,
-                out Silk.NET.Vulkan.Buffer stagingBuffer,
-                out DeviceMemory stagingBufferMemory);
-
-            void* videoMemory;
-            vk.MapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &videoMemory);
-
-            fixed (void* srcData = &vertices[0])
-            {
-                System.Buffer.MemoryCopy(srcData, videoMemory, bufferSize, bufferSize);
-            }
-
-            vk.UnmapMemory(device, stagingBufferMemory);
-
-            CreateBuffer(bufferSize,
+            vertexBuffer = new(physicalDevice, 
+                device,
+                bufferSize,
                 BufferUsageFlags.BufferUsageTransferDstBit |
                     BufferUsageFlags.BufferUsageVertexBufferBit,
-                MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                    MemoryPropertyFlags.MemoryPropertyDeviceLocalBit,
-                out vertexBuffer,
-                out vertexBufferMemory);
+                MemoryPropertyFlags.MemoryPropertyDeviceLocalBit);
 
-            CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-            vk.DestroyBuffer(device, stagingBuffer, null);
-            vk.FreeMemory(device, stagingBufferMemory, null);
-
+            vertexBuffer.Upload<Vertex>(physicalDevice, device, commandPool, graphicsQueue, vertices);            
         }
-
-        void CreateBuffer(
-            ulong size,
-            BufferUsageFlags usage,
-            MemoryPropertyFlags properties,
-            out Silk.NET.Vulkan.Buffer buffer,
-            out DeviceMemory bufferMemory)
-        {
-            BufferCreateInfo bufferInfo = new()
-            {
-                SType = StructureType.BufferCreateInfo,
-                Size = size,
-                Usage = usage,
-                SharingMode = SharingMode.Exclusive
-            };
-
-            if (vk.CreateBuffer(device, in bufferInfo, null, out buffer) != Result.Success)
-            {
-                throw new Exception("failed to create buffer!");
-            }
-
-            MemoryRequirements memRequirements;
-            vk.GetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-            MemoryAllocateInfo allocInfo = new()
-            {
-                SType = StructureType.MemoryAllocateInfo,
-                AllocationSize = memRequirements.Size,
-                MemoryTypeIndex = FindMemoryType(memRequirements.MemoryTypeBits, properties)
-            };
-
-            if (vk.AllocateMemory(device, in allocInfo, null, out bufferMemory) != Result.Success)
-            {
-                throw new Exception("failed to allocate buffer memory!");
-            }
-
-            vk.BindBufferMemory(device, buffer, bufferMemory, 0);
-        }
-
-        void CopyBuffer(
-            Silk.NET.Vulkan.Buffer srcBuffer,
-            Silk.NET.Vulkan.Buffer dstBuffer,
-            uint size)
-        {
-            CommandBuffer commandBuffer = BeginSingleTimeCommands();
-
-            BufferCopy copyRegion = new()
-            {
-                SrcOffset = 0, // Optional
-                DstOffset = 0, // Optional
-                Size = size
-            };
-
-            vk.CmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, in copyRegion);
-
-            EndSingleTimeCommands(commandBuffer);
-        }
-
-        CommandBuffer BeginSingleTimeCommands()
-        {
-            CommandBufferAllocateInfo allocInfo = new()
-            {
-                SType = StructureType.CommandBufferAllocateInfo,
-                Level = CommandBufferLevel.Primary,
-                CommandPool = commandPool,
-                CommandBufferCount = 1
-            };
-
-            vk.AllocateCommandBuffers(device, in allocInfo, out CommandBuffer commandBuffer);
-
-            CommandBufferBeginInfo beginInfo = new();
-            beginInfo.SType = StructureType.CommandBufferBeginInfo;
-            beginInfo.Flags = CommandBufferUsageFlags.CommandBufferUsageOneTimeSubmitBit;
-
-            vk.BeginCommandBuffer(commandBuffer, in beginInfo);
-
-            return commandBuffer;
-        }
-
-        void EndSingleTimeCommands(CommandBuffer commandBuffer)
-        {
-            vk.EndCommandBuffer(commandBuffer);
-
-            SubmitInfo submitInfo = new();
-            submitInfo.SType = StructureType.SubmitInfo;
-            submitInfo.CommandBufferCount = 1;
-            submitInfo.PCommandBuffers = &commandBuffer;
-
-            vk.QueueSubmit(graphicsQueue, 1, in submitInfo, new Fence(null));
-            vk.QueueWaitIdle(graphicsQueue);
-
-            vk.FreeCommandBuffers(device, commandPool, 1, in commandBuffer);
-        }
-
+                        
         uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
         {            
-            for (int i = 0; i < physicalDevice.MemoryProperties.MemoryTypeCount; i++)
+            for (int i = 0; i < physicalDevice.GetMemoryProperties().MemoryTypeCount; i++)
             {
                 if ((typeFilter & (i << 1)) != 0 &&
-                    (physicalDevice.MemoryProperties.MemoryTypes[i].PropertyFlags & properties) == properties)
+                    (physicalDevice.GetMemoryProperties().MemoryTypes[i].PropertyFlags & properties) == properties)
                 {
                     return (uint)i;
                 }
@@ -1056,49 +669,27 @@ namespace VulkanTest
         {
             uint bufferSize = (uint)(Marshal.SizeOf(indices[0]) * indices.Length);
 
-            CreateBuffer(bufferSize, BufferUsageFlags.BufferUsageTransferSrcBit,
-                MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                    MemoryPropertyFlags.MemoryPropertyHostCoherentBit,
-                out Silk.NET.Vulkan.Buffer stagingBuffer,
-                out DeviceMemory stagingBufferMemory);
-
-            void* videoMemory;
-            vk.MapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &videoMemory);
-
-            fixed (void* srcData = &indices[0])
-            {
-                System.Buffer.MemoryCopy(srcData, videoMemory, bufferSize, bufferSize);
-            }
-
-            vk.UnmapMemory(device, stagingBufferMemory);
-
-            CreateBuffer(bufferSize,
+            indexBuffer = new(physicalDevice,
+                device,
+                bufferSize,
                 BufferUsageFlags.BufferUsageTransferDstBit |
                     BufferUsageFlags.BufferUsageIndexBufferBit,
-                MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                    MemoryPropertyFlags.MemoryPropertyDeviceLocalBit,
-                out indexBuffer,
-                out indexBufferMemory);
+                MemoryPropertyFlags.MemoryPropertyDeviceLocalBit);
 
-            CopyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-            vk.DestroyBuffer(device, stagingBuffer, null);
-            vk.FreeMemory(device, stagingBufferMemory, null);
+            indexBuffer.Upload<ushort>(physicalDevice, device, commandPool, graphicsQueue, indices);
+            
         }
 
         void CreateUniformBuffers()
         {
             uint bufferSize = (uint)sizeof(UniformBufferObject);
 
-            uniformBuffers = new Silk.NET.Vulkan.Buffer[MAX_FRAMES_IN_FLIGHT];
-            uniformBuffersMemory = new DeviceMemory[MAX_FRAMES_IN_FLIGHT];
-
+            uniformBuffers = new BufferData[MAX_FRAMES_IN_FLIGHT];
+           
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                CreateBuffer(bufferSize, BufferUsageFlags.BufferUsageUniformBufferBit,
-                    MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                    MemoryPropertyFlags.MemoryPropertyHostCoherentBit,
-                    out uniformBuffers[i], out uniformBuffersMemory[i]);
+                uniformBuffers[i] = new BufferData(physicalDevice, device, bufferSize,
+                    BufferUsageFlags.BufferUsageUniformBufferBit);           
             }
         }
 
@@ -1161,15 +752,15 @@ namespace VulkanTest
             {
                 DescriptorBufferInfo bufferInfo = new()
                 {
-                    Buffer = uniformBuffers[i],
+                    Buffer = uniformBuffers[i].buffer,
                     Offset = 0,
                     Range = (ulong)sizeof(UniformBufferObject)
                 };
 
                 DescriptorImageInfo imageInfo = new();
                 imageInfo.ImageLayout = ImageLayout.ShaderReadOnlyOptimal;
-                imageInfo.ImageView = textureImageView;
-                imageInfo.Sampler = textureSampler;
+                imageInfo.ImageView = textureData.imageData.imageView;
+                imageInfo.Sampler = textureData.sampler;
 
                 WriteDescriptorSet[] descriptorWrites = new WriteDescriptorSet[2];
 
@@ -1209,78 +800,50 @@ namespace VulkanTest
 
         void CreateCommandBuffer()
         {
-            commandBuffers = new CommandBuffer[MAX_FRAMES_IN_FLIGHT];
+            CommandBufferAllocateInfo allocInfo = new(                          
+                commandPool: commandPool,
+                level: CommandBufferLevel.Primary,
+                commandBufferCount: MAX_FRAMES_IN_FLIGHT
+            );
 
-            for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                CommandBufferAllocateInfo allocInfo = new()
-                {
-                    SType = StructureType.CommandBufferAllocateInfo,
-                    CommandPool = commandPool,
-                    Level = CommandBufferLevel.Primary,
-                    CommandBufferCount = 1
-                };
-
-                if (vk.AllocateCommandBuffers(device, in allocInfo, out commandBuffers[i])
-                    != Result.Success)
-                {
-                    throw new Exception("failed to allocate command buffers!");
-                }
-            }
+            commandBuffers = new VkCommandBuffers(device, allocInfo).ToArray();            
         }
 
-        void RecordCommandBuffer(CommandBuffer commandBuffer, uint imageIndex)
-        {
-            CommandBufferBeginInfo beginInfo = new()
-            {
-                SType = StructureType.CommandBufferBeginInfo,
-                Flags = 0, // Optional
-                PInheritanceInfo = null // Optional
-            };
-
-            if (vk.BeginCommandBuffer(commandBuffer, in beginInfo) != Result.Success)
-            {
-                throw new Exception("failed to begin recording command buffer!");
-            }
-
+        void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
+        {          
+            commandBuffer.Begin(new(flags: 0, pInheritanceInfo: null));
+         
             ClearValue* clearValues = stackalloc[]
                 {
                     new ClearValue(new ClearColorValue(0, 0, 0, 1)),
                     new ClearValue(null, new ClearDepthStencilValue(1.0f, 0))
                 };
 
-            RenderPassBeginInfo renderPassInfo = new()
-            {
-                SType = StructureType.RenderPassBeginInfo,
-                RenderPass = renderPass,
-                Framebuffer = swapChainFramebuffers[imageIndex],
-                ClearValueCount = 2,
-                PClearValues = clearValues
-            };
+            RenderPassBeginInfo renderPassInfo = new
+                (                          
+                    renderPass: renderPass,
+                    framebuffer: swapChainFramebuffers[imageIndex],
+                    clearValueCount: 2,
+                    pClearValues: clearValues,
+                    renderArea: new(new Offset2D(0, 0), swapChainExtent)
+                );
+       
+            commandBuffer.BeginRenderPass(renderPassInfo, SubpassContents.Inline);
 
-            renderPassInfo.RenderArea.Offset = new Offset2D(0, 0);
-            renderPassInfo.RenderArea.Extent = swapChainExtent;
+            commandBuffer.BindPipeline(PipelineBindPoint.Graphics, graphicsPipeline);
+           
+            commandBuffer.BindVertexBuffers(vertexBuffer.buffer, 0);
 
-            vk.CmdBeginRenderPass(commandBuffer, in renderPassInfo, SubpassContents.Inline);
+            commandBuffer.BindIndexBuffer(indexBuffer.buffer, 0, IndexType.Uint16);
 
-            vk.CmdBindPipeline(commandBuffer, PipelineBindPoint.Graphics, graphicsPipeline);
+            commandBuffer.BindDescriptorSets(PipelineBindPoint.Graphics, pipelineLayout,
+                descriptorSets[currentFrame]);
 
-            ulong offsets = 0;
-            vk.CmdBindVertexBuffers(commandBuffer, 0, 1, in vertexBuffer, in offsets);
+            commandBuffer.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
 
-            vk.CmdBindIndexBuffer(commandBuffer, indexBuffer, 0, IndexType.Uint16);
+            commandBuffer.EndRenderPass();
 
-            vk.CmdBindDescriptorSets(commandBuffer, PipelineBindPoint.Graphics, pipelineLayout,
-                0, 1, in descriptorSets[currentFrame], 0, null);
-
-            vk.CmdDrawIndexed(commandBuffer, (uint)indices.Length, 1, 0, 0, 0);
-
-            vk.CmdEndRenderPass(commandBuffer);
-
-            if (vk.EndCommandBuffer(commandBuffer) != Result.Success)
-            {
-                throw new Exception("failed to record command buffer!");
-            }
+            commandBuffer.End(); 
         }
 
         void CreateSyncObjects()
@@ -1302,9 +865,9 @@ namespace VulkanTest
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                if ((vk.CreateSemaphore(device, in semaphoreInfo, null, out imageAvailableSemaphores[i]) != Result.Success) ||
-                    (vk.CreateSemaphore(device, in semaphoreInfo, null, out renderFinishedSemaphores[i]) != Result.Success) ||
-                    (vk.CreateFence(device, in fenceInfo, null, out inFlightFences[i]) != Result.Success))
+                if ((vk.CreateSemaphore(device, semaphoreInfo, null, out imageAvailableSemaphores[i]) != Result.Success) ||
+                    (vk.CreateSemaphore(device, semaphoreInfo, null, out renderFinishedSemaphores[i]) != Result.Success) ||
+                    (vk.CreateFence(device, fenceInfo, null, out inFlightFences[i]) != Result.Success))
                 {
                     throw new Exception("failed to create semaphores!");
                 }
@@ -1313,10 +876,9 @@ namespace VulkanTest
 
         void DrawFrame()
         {
-
             vk.WaitForFences(device, 1, inFlightFences[currentFrame], true, ulong.MaxValue);
            
-            (uint imageIndex, Result result) = device.AquireNextImage(swapChainData.SwapChain, ulong.MaxValue,
+            (uint imageIndex, Result result) = swapChainData.SwapChain.AquireNextImage(ulong.MaxValue,
                 imageAvailableSemaphores[currentFrame], new Fence(null));
 
             if (result == Result.ErrorOutOfDateKhr || result == Result.SuboptimalKhr || isFramebufferResized)
@@ -1330,9 +892,10 @@ namespace VulkanTest
                 throw new Exception("failed to acquire swap chain image!");
             }
 
-            vk.ResetFences(device, 1, in inFlightFences[currentFrame]);
+            vk.ResetFences(device, 1, inFlightFences[currentFrame]);
 
-            vk.ResetCommandBuffer(commandBuffers[currentFrame], 0);
+            commandBuffers[currentFrame].Reset(0);
+
             RecordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
             UpdateUniformBuffer(imageIndex);
@@ -1340,47 +903,35 @@ namespace VulkanTest
             Semaphore* waitSemaphores = stackalloc[] { imageAvailableSemaphores[currentFrame] };
             PipelineStageFlags* waitStages = stackalloc[] { PipelineStageFlags.PipelineStageColorAttachmentOutputBit };
             Semaphore signalSemaphore = renderFinishedSemaphores[currentFrame];
-
-            SubmitInfo submitInfo = new()
-            {
-                SType = StructureType.SubmitInfo,
-                WaitSemaphoreCount = 1
-            };
-
-            fixed (CommandBuffer* commandBufferPtr = &commandBuffers[currentFrame])
-            {
-                submitInfo.WaitSemaphoreCount = 1;
-                submitInfo.PWaitSemaphores = waitSemaphores;
-                submitInfo.PWaitDstStageMask = waitStages;
-
-                submitInfo.CommandBufferCount = 1;
-                submitInfo.PCommandBuffers = commandBufferPtr;
-
-                submitInfo.SignalSemaphoreCount = 1;
-                submitInfo.PSignalSemaphores = &signalSemaphore;
-
-                if (vk.QueueSubmit(graphicsQueue, 1, in submitInfo, inFlightFences[currentFrame]) != Result.Success)
-                {
-                    throw new Exception("failed to submit draw command buffer!");
-                }
-
-                currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-            }
-
-            SwapchainKHR swapChain = swapChainData.SwapChain;
-           
-            PresentInfoKHR presentInfo = new();
-            presentInfo.SType = StructureType.PresentInfoKhr;
-            presentInfo.WaitSemaphoreCount = 1;
-            presentInfo.PWaitSemaphores = &signalSemaphore;
-            presentInfo.SwapchainCount = 1;
-            presentInfo.PSwapchains = &swapChain;
-            presentInfo.PImageIndices = &imageIndex;
-            presentInfo.PResults = null;
-
-            presentQueue.PresentKHR(swapChainData.SwapChain, presentInfo);
             
+            CommandBuffer commandBuffer = commandBuffers[currentFrame];
 
+            SubmitInfo submitInfo = new(                           
+                waitSemaphoreCount: 1,
+                pWaitSemaphores: waitSemaphores,
+                pWaitDstStageMask: waitStages,
+                commandBufferCount: 1,
+                pCommandBuffers: &commandBuffer,
+                signalSemaphoreCount: 1,
+                pSignalSemaphores: &signalSemaphore
+            );
+
+            graphicsQueue.Submit(submitInfo, inFlightFences[currentFrame]);
+            
+            currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+            
+            SwapchainKHR swapChain = swapChainData.SwapChain;
+
+            PresentInfoKHR presentInfo = new(          
+                waitSemaphoreCount: 1,
+                pWaitSemaphores: &signalSemaphore,
+                swapchainCount: 1,
+                pSwapchains: &swapChain,
+                pImageIndices: &imageIndex,
+                pResults: null
+            );
+
+            presentQueue.PresentKHR(swapChainData.SwapChain, presentInfo);            
         }
 
         static readonly long startTime = DateTime.Now.Ticks;
@@ -1409,13 +960,8 @@ namespace VulkanTest
 
             ubo.proj.M11 *= -1;
 
-            void* videoMemory;
-            ulong sizeBytes = (ulong)Marshal.SizeOf(ubo);
-            vk.MapMemory(device, uniformBuffersMemory[currentFrame], 0, sizeBytes, 0, &videoMemory);
-
-            System.Buffer.MemoryCopy(&ubo, videoMemory, sizeBytes, sizeBytes);
-
-            vk.UnmapMemory(device, uniformBuffersMemory[currentFrame]);
+            uniformBuffers[currentFrame].Upload(ubo);
+          
         }
 
         void RecreateSwapChain()
@@ -1438,13 +984,11 @@ namespace VulkanTest
 
         void CleanupSwapChain()
         {
-            vk.DestroyImageView(device, depthImageView, null);
-            vk.DestroyImage(device, depthImage, null);
-            vk.FreeMemory(device, depthImageMemory, null);
-
+            depthBuffer.Dispose();
+         
             foreach (var framebuffer in swapChainFramebuffers)
             {
-                vk.DestroyFramebuffer(device, framebuffer, null);
+                framebuffer.Dispose();              
             }
 
             vk.DestroyPipeline(device, graphicsPipeline, null);
@@ -1463,34 +1007,27 @@ namespace VulkanTest
                 vk.DestroyFence(device, inFlightFences[i], null);
             }
 
-            device.DestroyCommandPool(commandPool);
+            commandPool.Dispose();
          
             CleanupSwapChain();
 
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                vk.DestroyBuffer(device, uniformBuffers[i], null);
-                vk.FreeMemory(device, uniformBuffersMemory[i], null);
+                uniformBuffers[i].Dispose();     
             }
 
-            vk.DestroySampler(device, textureSampler, null);
-            vk.DestroyImageView(device, textureImageView, null);
-            vk.DestroyImage(device, textureImage, null);
-            vk.FreeMemory(device, textureImageMemory, null);
+            textureData.Dispose();
 
             vk.DestroyDescriptorPool(device, descriptorPool, null);
             vk.DestroyDescriptorSetLayout(device, descriptorSetLayout, null);
 
-            vk.DestroyBuffer(device, indexBuffer, null);
-            vk.FreeMemory(device, indexBufferMemory, null);
-
-            vk.DestroyBuffer(device, vertexBuffer, null);
-            vk.FreeMemory(device, vertexBufferMemory, null);
-
+            indexBuffer.Dispose();      
+            vertexBuffer.Dispose();
+        
             device.Dispose();
 
             surfaceData.Dispose();
-            instance.DestroyDebugUtilsMessengerEXT(debugMessenger);
+            debugMessenger.Dispose();
             instance.Dispose();
    
             window.Close();
