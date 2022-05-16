@@ -18,10 +18,10 @@ using VulkanTest.VulkanObject;
 
 namespace VulkanTest
 {
-
     unsafe class VulkanTutorial
     {
         public static ExtDebugUtils debugUtils;
+        static readonly long startTime = DateTime.Now.Ticks;
 
         const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -29,7 +29,7 @@ namespace VulkanTest
         bool isFramebufferResized = false;
 
         IWindow window;
-        Vk vk;     
+        //Vk vk;     
 
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
@@ -50,15 +50,15 @@ namespace VulkanTest
         VkCommandPool commandPool;      
         VkCommandBuffer[] commandBuffers;
 
-        RenderPass renderPass;
-        DescriptorSetLayout descriptorSetLayout;
-        PipelineLayout pipelineLayout;
+        VkRenderPass renderPass;
+        VkDescriptorSetLayout descriptorSetLayout;
 
-        Pipeline graphicsPipeline;
+        VkPipelineLayout pipelineLayout;
+        VkPipeline graphicsPipeline;
 
-        Semaphore[] imageAvailableSemaphores;
-        Semaphore[] renderFinishedSemaphores;
-        Fence[] inFlightFences;
+        VkSemaphore[] imageAvailableSemaphores;
+        VkSemaphore[] renderFinishedSemaphores;
+        VkFence[] inFlightFences;
 
         BufferData vertexBuffer;
         BufferData indexBuffer;
@@ -68,8 +68,8 @@ namespace VulkanTest
     
         DepthBufferData depthBuffer;
     
-        DescriptorPool descriptorPool;
-        DescriptorSet[] descriptorSets;
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet[] descriptorSets;
 
         readonly string[] validationLayers = { "VK_LAYER_KHRONOS_validation" };
       
@@ -152,7 +152,7 @@ namespace VulkanTest
                   
         void CreateInstance()
         {
-            vk = Vk.GetApi();
+            //vk = Vk.GetApi();
 
             var extensions = requiredExtensions.Concat(instanceExtensions).ToArray();
 
@@ -198,8 +198,10 @@ namespace VulkanTest
             swapChainExtent = swapChainData.SwapchainExtent;
         }
           
-        ShaderModule CreateShaderModule(byte[] code)
+        VkShaderModule CreateShaderModule(string filename)
         {
+            byte[] code = File.ReadAllBytes(filename);
+
             fixed (byte* codePtr = code)
             {
                 ShaderModuleCreateInfo createInfo = new(                                 
@@ -207,14 +209,8 @@ namespace VulkanTest
                     pCode: (uint*)codePtr
                 );
 
-                if (vk.CreateShaderModule(device, in createInfo, null, out ShaderModule shaderModule) != Result.Success)
-                {
-                    throw new Exception("failed to create shader module!");
-                }
-
-                return shaderModule;
+                return new VkShaderModule(device, createInfo);             
             }
-
         }
 
         void CreateDescriptorSetLayout()
@@ -243,53 +239,45 @@ namespace VulkanTest
                 samplerLayoutBinding 
             };
 
-            DescriptorSetLayoutCreateInfo layoutInfo = new()
-            {
-                SType = StructureType.DescriptorSetLayoutCreateInfo,
-                BindingCount = 2,
-                PBindings = bindings
-            };
+            DescriptorSetLayoutCreateInfo layoutInfo = new
+            (             
+                bindingCount: 2,
+                pBindings: bindings
+            );
 
-            if (vk.CreateDescriptorSetLayout(device, in layoutInfo, null, out descriptorSetLayout) != Result.Success)
-            {
-                throw new Exception("failed to create descriptor set layout!");
-            }
+            descriptorSetLayout = new VkDescriptorSetLayout(device, layoutInfo);        
         }
 
         void CreateGraphicsPipeline()
-        {
-            var vertShaderCode = File.ReadAllBytes("vertshader.spv");
-            var fragShaderCode = File.ReadAllBytes("fragshader.spv");
+        {        
+            VkShaderModule vertShaderModule = CreateShaderModule("vertshader.spv");
+            VkShaderModule fragShaderModule = CreateShaderModule("fragshader.spv");
 
-            ShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
-            ShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+            PipelineShaderStageCreateInfo vertShaderStageInfo = new
+            (               
+                stage: ShaderStageFlags.ShaderStageVertexBit,
+                module: vertShaderModule,
+                pName: (byte*)SilkMarshal.StringToPtr("main")
+            );
 
-            PipelineShaderStageCreateInfo vertShaderStageInfo = new()
+            PipelineShaderStageCreateInfo fragShaderStageInfo = new
+            (               
+                stage: ShaderStageFlags.ShaderStageFragmentBit,
+                module: fragShaderModule,
+                pName: (byte*)SilkMarshal.StringToPtr("main")
+            );
+
+            var shaderStages = stackalloc PipelineShaderStageCreateInfo[]
             {
-                SType = StructureType.PipelineShaderStageCreateInfo,
-                Stage = ShaderStageFlags.ShaderStageVertexBit,
-                Module = vertShaderModule,
-                PName = (byte*)SilkMarshal.StringToPtr("main")
+                vertShaderStageInfo,
+                fragShaderStageInfo
             };
 
-            PipelineShaderStageCreateInfo fragShaderStageInfo = new()
-            {
-                SType = StructureType.PipelineShaderStageCreateInfo,
-                Stage = ShaderStageFlags.ShaderStageFragmentBit,
-                Module = fragShaderModule,
-                PName = (byte*)SilkMarshal.StringToPtr("main")
-            };
-
-            var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
-            shaderStages[0] = vertShaderStageInfo;
-            shaderStages[1] = fragShaderStageInfo;
-
-            PipelineInputAssemblyStateCreateInfo inputAssembly = new()
-            {
-                SType = StructureType.PipelineInputAssemblyStateCreateInfo,
-                Topology = PrimitiveTopology.TriangleList,
-                PrimitiveRestartEnable = false
-            };
+            PipelineInputAssemblyStateCreateInfo inputAssembly = new
+            (               
+                topology: PrimitiveTopology.TriangleList,
+                primitiveRestartEnable: false
+            );
 
             Viewport viewport = new()
             {
@@ -307,40 +295,37 @@ namespace VulkanTest
                 Extent = swapChainExtent
             };
 
-            PipelineViewportStateCreateInfo viewportState = new()
-            {
-                SType = StructureType.PipelineViewportStateCreateInfo,
-                ViewportCount = 1,
-                PViewports = &viewport,
-                ScissorCount = 1,
-                PScissors = &scissor
-            };
+            PipelineViewportStateCreateInfo viewportState = new
+            (               
+                viewportCount: 1,
+                pViewports: &viewport,
+                scissorCount: 1,
+                pScissors: &scissor
+            );
 
-            PipelineRasterizationStateCreateInfo rasterizer = new()
-            {
-                SType = StructureType.PipelineRasterizationStateCreateInfo,
-                DepthClampEnable = false,
-                RasterizerDiscardEnable = false,
-                PolygonMode = PolygonMode.Fill,
-                LineWidth = 1.0f,
-                CullMode = CullModeFlags.CullModeBackBit,
-                FrontFace = FrontFace.CounterClockwise,
-                DepthBiasEnable = false,
-                DepthBiasConstantFactor = 0.0f, // Optional
-                DepthBiasClamp = 0.0f, // Optional
-                DepthBiasSlopeFactor = 0.0f // Optional
-            };
+            PipelineRasterizationStateCreateInfo rasterizer = new
+            (             
+                depthClampEnable: false,
+                rasterizerDiscardEnable: false,
+                polygonMode: PolygonMode.Fill,
+                lineWidth: 1.0f,
+                cullMode: CullModeFlags.CullModeBackBit,
+                frontFace: FrontFace.CounterClockwise,
+                depthBiasEnable: false,
+                depthBiasConstantFactor: 0.0f, 
+                depthBiasClamp: 0.0f, 
+                depthBiasSlopeFactor: 0.0f 
+            );
 
-            PipelineMultisampleStateCreateInfo multisampling = new()
-            {
-                SType = StructureType.PipelineMultisampleStateCreateInfo,
-                SampleShadingEnable = false,
-                RasterizationSamples = SampleCountFlags.SampleCount1Bit,
-                MinSampleShading = 1.0f, // Optional
-                PSampleMask = null, // Optional
-                AlphaToCoverageEnable = false, // Optional
-                AlphaToOneEnable = false // Optional
-            };
+            PipelineMultisampleStateCreateInfo multisampling = new
+            (               
+                sampleShadingEnable: false,
+                rasterizationSamples: SampleCountFlags.SampleCount1Bit,
+                minSampleShading: 1.0f, 
+                pSampleMask: null, 
+                alphaToCoverageEnable: false, 
+                alphaToOneEnable: false 
+            );
 
             PipelineColorBlendAttachmentState colorBlendAttachment = new()
             {
@@ -349,98 +334,87 @@ namespace VulkanTest
                                  ColorComponentFlags.ColorComponentBBit |
                                  ColorComponentFlags.ColorComponentABit,
                 BlendEnable = false,
-                SrcColorBlendFactor = BlendFactor.One, // Optional
-                DstColorBlendFactor = BlendFactor.Zero, // Optional
-                ColorBlendOp = BlendOp.Add, // Optional
-                SrcAlphaBlendFactor = BlendFactor.One, // Optional
-                DstAlphaBlendFactor = BlendFactor.Zero, // Optional
-                AlphaBlendOp = BlendOp.Add // Optional
+                SrcColorBlendFactor = BlendFactor.One, 
+                DstColorBlendFactor = BlendFactor.Zero, 
+                ColorBlendOp = BlendOp.Add, 
+                SrcAlphaBlendFactor = BlendFactor.One, 
+                DstAlphaBlendFactor = BlendFactor.Zero, 
+                AlphaBlendOp = BlendOp.Add 
             };
 
-            PipelineColorBlendStateCreateInfo colorBlending = new()
-            {
-                SType = StructureType.PipelineColorBlendStateCreateInfo,
-                LogicOpEnable = false,
-                LogicOp = LogicOp.Copy, // Optional
-                AttachmentCount = 1,
-                PAttachments = &colorBlendAttachment
-            };
-            colorBlending.BlendConstants[0] = 0.0f; // Optional
-            colorBlending.BlendConstants[1] = 0.0f; // Optional
-            colorBlending.BlendConstants[2] = 0.0f; // Optional
-            colorBlending.BlendConstants[3] = 0.0f; // Optional
+            PipelineColorBlendStateCreateInfo colorBlending = new
+            (               
+                logicOpEnable: false,
+                logicOp: LogicOp.Copy, 
+                attachmentCount: 1,
+                pAttachments: &colorBlendAttachment                           
+            );
+        
+            colorBlending.BlendConstants[0] = 0.0f; 
+            colorBlending.BlendConstants[1] = 0.0f; 
+            colorBlending.BlendConstants[2] = 0.0f; 
+            colorBlending.BlendConstants[3] = 0.0f;
 
-            fixed (DescriptorSetLayout* descriptorSetLayoutPtr = &descriptorSetLayout)
-            {
-                PipelineLayoutCreateInfo pipelineLayoutInfo = new()
-                {
-                    SType = StructureType.PipelineLayoutCreateInfo,
-                    SetLayoutCount = 1,
-                    PSetLayouts = descriptorSetLayoutPtr,
-                    PushConstantRangeCount = 0,
-                    PPushConstantRanges = null
-                };
+            DescriptorSetLayout descriptorSetLayoutPtr = descriptorSetLayout;
+            
+            PipelineLayoutCreateInfo pipelineLayoutInfo = new
+            (                    
+                setLayoutCount: 1,
+                pSetLayouts: &descriptorSetLayoutPtr,
+                pushConstantRangeCount: 0,
+                pPushConstantRanges: null
+            );
 
-                if (vk.CreatePipelineLayout(device, in pipelineLayoutInfo, null, out pipelineLayout) != Result.Success)
-                {
-                    throw new Exception("failed to create pipeline layout!");
-                }
-            }
-
-            PipelineDepthStencilStateCreateInfo depthStencil = new()
-            {
-                SType = StructureType.PipelineDepthStencilStateCreateInfo,
-                DepthTestEnable = true,
-                DepthWriteEnable = true,
-                DepthCompareOp = CompareOp.Less,
-                DepthBoundsTestEnable = false,
-                MinDepthBounds = 0,
-                MaxDepthBounds = 1,
-                StencilTestEnable = false,
-            };
+            pipelineLayout = new VkPipelineLayout(device, pipelineLayoutInfo);
+                            
+            PipelineDepthStencilStateCreateInfo depthStencil = new
+            (              
+                depthTestEnable: true,
+                depthWriteEnable: true,
+                depthCompareOp: CompareOp.Less,
+                depthBoundsTestEnable: false,
+                minDepthBounds: 0,
+                maxDepthBounds: 1,
+                stencilTestEnable: false
+            );
 
             var bindingDescription = Vertex.GetBindingDescription();
             var attributeDescriptions = Vertex.GetAttributeDescriptions();
 
             fixed (VertexInputAttributeDescription* attributeDescriptionsPtr = &attributeDescriptions[0])
             {
-                PipelineVertexInputStateCreateInfo vertexInputInfo = new()
-                {
-                    SType = StructureType.PipelineVertexInputStateCreateInfo,
-                    VertexBindingDescriptionCount = 1,
-                    PVertexBindingDescriptions = &bindingDescription, // Optional
-                    VertexAttributeDescriptionCount = (uint)attributeDescriptions.Length,
-                    PVertexAttributeDescriptions = attributeDescriptionsPtr // Optional
-                };
+                PipelineVertexInputStateCreateInfo vertexInputInfo = new
+                (                    
+                    vertexBindingDescriptionCount: 1,
+                    pVertexBindingDescriptions: &bindingDescription, 
+                    vertexAttributeDescriptionCount: (uint)attributeDescriptions.Length,
+                    pVertexAttributeDescriptions: attributeDescriptionsPtr 
+                );
 
-                GraphicsPipelineCreateInfo pipelineInfo = new()
-                {
-                    SType = StructureType.GraphicsPipelineCreateInfo,
-                    StageCount = 2,
-                    PStages = shaderStages,
-                    PVertexInputState = &vertexInputInfo,
-                    PInputAssemblyState = &inputAssembly,
-                    PViewportState = &viewportState,
-                    PRasterizationState = &rasterizer,
-                    PMultisampleState = &multisampling,
-                    PDepthStencilState = &depthStencil,
-                    PColorBlendState = &colorBlending,
-                    PDynamicState = null, // Optional
-                    Layout = pipelineLayout,
-                    RenderPass = renderPass,
-                    Subpass = 0,
-                    BasePipelineHandle = new Pipeline(null), // Optional
-                    BasePipelineIndex = -1, // Optional                   
-                };
+                GraphicsPipelineCreateInfo pipelineInfo = new
+                (                   
+                    stageCount: 2,
+                    pStages: shaderStages,
+                    pVertexInputState: &vertexInputInfo,
+                    pInputAssemblyState: &inputAssembly,
+                    pViewportState: &viewportState,
+                    pRasterizationState: &rasterizer,
+                    pMultisampleState: &multisampling,
+                    pDepthStencilState: &depthStencil,
+                    pColorBlendState: &colorBlending,
+                    pDynamicState: null, 
+                    layout: pipelineLayout,
+                    renderPass: renderPass,
+                    subpass: 0,
+                    basePipelineHandle: new Pipeline(null), 
+                    basePipelineIndex: -1                    
+                );
 
-                if (vk.CreateGraphicsPipelines(device, new PipelineCache(null), 1, in pipelineInfo, null, out graphicsPipeline) != Result.Success)
-                {
-                    throw new Exception("failed to create graphics pipeline!");
-                }
+                graphicsPipeline = new VkPipeline(device, new PipelineCache(null), pipelineInfo);               
             }
 
-            vk.DestroyShaderModule(device, fragShaderModule, null);
-            vk.DestroyShaderModule(device, vertShaderModule, null);
+            fragShaderModule.Dispose();
+            vertShaderModule.Dispose();
         }
 
         void CreateRenderPass()
@@ -489,7 +463,6 @@ namespace VulkanTest
                 PDepthStencilAttachment = &depthAttachmentRef
             };
 
-
             SubpassDependency dependency = new()
             {
                 SrcSubpass = Vk.SubpassExternal,
@@ -504,27 +477,24 @@ namespace VulkanTest
                     AccessFlags.AccessDepthStencilAttachmentWriteBit
             };
 
-            AttachmentDescription* attachments = stackalloc AttachmentDescription[2]
-                {
-                    colorAttachment,
-                    depthAttachment
-                };
-
-            RenderPassCreateInfo renderPassInfo = new()
+            AttachmentDescription* attachments = stackalloc AttachmentDescription[]
             {
-                SType = StructureType.RenderPassCreateInfo,
-                AttachmentCount = 2,
-                PAttachments = attachments,
-                SubpassCount = 1,
-                PSubpasses = &subpass,
-                DependencyCount = 1,
-                PDependencies = &dependency
+                colorAttachment,
+                depthAttachment
             };
 
-            if (vk.CreateRenderPass(device, in renderPassInfo, null, out renderPass) != Result.Success)
-            {
-                throw new Exception("failed to create render pass!");
-            }
+            RenderPassCreateInfo renderPassInfo = new
+            (               
+                attachmentCount: 2,
+                pAttachments: attachments,
+                subpassCount: 1,
+                pSubpasses: &subpass,
+                dependencyCount: 1,
+                pDependencies: &dependency
+            );
+
+            renderPass = new VkRenderPass(device, renderPassInfo);
+          
 
         }
 
@@ -556,12 +526,11 @@ namespace VulkanTest
         {
             QueueFamilyIndices queueFamilyIndices = SU.FindGraphicsAndPresentQueueFamilyIndex(physicalDevice, surfaceData);
 
-            CommandPoolCreateInfo poolInfo = new()
-            {
-                SType = StructureType.CommandPoolCreateInfo,
-                Flags = CommandPoolCreateFlags.CommandPoolCreateResetCommandBufferBit,
-                QueueFamilyIndex = queueFamilyIndices.GraphicsFamily.Value
-            };
+            CommandPoolCreateInfo poolInfo = new
+            (             
+                flags: CommandPoolCreateFlags.CommandPoolCreateResetCommandBufferBit,
+                queueFamilyIndex: queueFamilyIndices.GraphicsFamily.Value
+            );
 
             commandPool = new VkCommandPool(device, poolInfo);        
         }
@@ -605,12 +574,7 @@ namespace VulkanTest
 
             throw new Exception("failed to find supported format!");
         }
-
-        bool HasStencilComponent(Format format)
-        {
-            return format == Format.D32SfloatS8Uint || format == Format.D24UnormS8Uint;
-        }
-
+      
         void CreateTextureImage()
         {
             var customConfig = SixLabors.ImageSharp.Configuration.Default.Clone();
@@ -625,10 +589,13 @@ namespace VulkanTest
                 throw new Exception("Error loading texture image");
             }
 
-            textureData = new TextureData(physicalDevice, device,
-              new Extent2D((uint)image.Width, (uint)image.Height),
-              ImageUsageFlags.ImageUsageTransferDstBit | ImageUsageFlags.ImageUsageSampledBit,
-              FormatFeatureFlags.FormatFeatureSampledImageBit, false, true);
+            textureData = new TextureData(physicalDevice,
+                device,
+                new Extent2D((uint)image.Width, (uint)image.Height),
+                ImageUsageFlags.ImageUsageTransferDstBit | ImageUsageFlags.ImageUsageSampledBit,
+                FormatFeatureFlags.FormatFeatureSampledImageBit, 
+                false, 
+                true);
 
             using var pinHandle = memory.Pin();
             void* srcData = pinHandle.Pointer;
@@ -650,21 +617,7 @@ namespace VulkanTest
 
             vertexBuffer.Upload<Vertex>(physicalDevice, device, commandPool, graphicsQueue, vertices);            
         }
-                        
-        uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
-        {            
-            for (int i = 0; i < physicalDevice.GetMemoryProperties().MemoryTypeCount; i++)
-            {
-                if ((typeFilter & (i << 1)) != 0 &&
-                    (physicalDevice.GetMemoryProperties().MemoryTypes[i].PropertyFlags & properties) == properties)
-                {
-                    return (uint)i;
-                }
-            }
-
-            throw new Exception("failed to find suitable memory type!");
-        }
-
+                             
         void CreateIndexBuffer()
         {
             uint bufferSize = (uint)(Marshal.SizeOf(indices[0]) * indices.Length);
@@ -694,35 +647,30 @@ namespace VulkanTest
         }
 
         void CreateDescriptorPool()
-        {
-            int nrPools = 2;
-            DescriptorPoolSize* poolSizes = stackalloc DescriptorPoolSize[nrPools];
-
-            poolSizes[0] = new DescriptorPoolSize
+        {       
+            DescriptorPoolSize* poolSizes = stackalloc DescriptorPoolSize[]
             {
-                Type = DescriptorType.UniformBuffer,
-                DescriptorCount = MAX_FRAMES_IN_FLIGHT
+                new DescriptorPoolSize
+                {
+                    Type = DescriptorType.UniformBuffer,
+                    DescriptorCount = MAX_FRAMES_IN_FLIGHT
+                },
+
+                new DescriptorPoolSize
+                {
+                    Type = DescriptorType.CombinedImageSampler,
+                    DescriptorCount = MAX_FRAMES_IN_FLIGHT
+                }
             };
 
-            poolSizes[1] = new DescriptorPoolSize
-            {
-                Type = DescriptorType.CombinedImageSampler,
-                DescriptorCount = MAX_FRAMES_IN_FLIGHT
-            };
+            DescriptorPoolCreateInfo poolInfo = new
+            (               
+                poolSizeCount: 2,
+                pPoolSizes: poolSizes,
+                maxSets: MAX_FRAMES_IN_FLIGHT
+            );
 
-            DescriptorPoolCreateInfo poolInfo = new()
-            {
-                SType = StructureType.DescriptorPoolCreateInfo,
-                PoolSizeCount = (uint)nrPools,
-                PPoolSizes = poolSizes,
-                MaxSets = MAX_FRAMES_IN_FLIGHT
-            };
-
-            if (vk.CreateDescriptorPool(device, in poolInfo, null, out descriptorPool) != Result.Success)
-            {
-                throw new Exception("failed to create descriptor pool!");
-            }
-
+            descriptorPool = new VkDescriptorPool(device, poolInfo);          
         }
 
         void CreateDescriptorSets()
@@ -734,20 +682,15 @@ namespace VulkanTest
                 layouts[i] = descriptorSetLayout;
             }
 
-            DescriptorSetAllocateInfo allocInfo = new()
-            {
-                SType = StructureType.DescriptorSetAllocateInfo,
-                DescriptorPool = descriptorPool,
-                DescriptorSetCount = MAX_FRAMES_IN_FLIGHT,
-                PSetLayouts = layouts
-            };
+            DescriptorSetAllocateInfo allocInfo = new
+            (
+                descriptorPool: descriptorPool,
+                descriptorSetCount: MAX_FRAMES_IN_FLIGHT,
+                pSetLayouts: layouts
+            );
 
-            descriptorSets = new DescriptorSet[MAX_FRAMES_IN_FLIGHT];
-            if (vk.AllocateDescriptorSets(device, &allocInfo, descriptorSets) != Result.Success)
-            {
-                throw new Exception("failed to allocate descriptor sets!");
-            }
-
+            descriptorSets = new VkDescriptorSets(device, allocInfo).ToArray();
+          
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
                 DescriptorBufferInfo bufferInfo = new()
@@ -757,50 +700,44 @@ namespace VulkanTest
                     Range = (ulong)sizeof(UniformBufferObject)
                 };
 
-                DescriptorImageInfo imageInfo = new();
-                imageInfo.ImageLayout = ImageLayout.ShaderReadOnlyOptimal;
-                imageInfo.ImageView = textureData.imageData.imageView;
-                imageInfo.Sampler = textureData.sampler;
-
-                WriteDescriptorSet[] descriptorWrites = new WriteDescriptorSet[2];
-
-                descriptorWrites[0] = new WriteDescriptorSet
+                DescriptorImageInfo imageInfo = new()
                 {
-                    SType = StructureType.WriteDescriptorSet,
-                    DstSet = descriptorSets[i],
-                    DstBinding = 0,
-                    DstArrayElement = 0,
-                    DescriptorType = DescriptorType.UniformBuffer,
-                    DescriptorCount = 1,
-                    PBufferInfo = &bufferInfo,
+                    ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+                    ImageView = textureData.imageData.imageView,
+                    Sampler = textureData.sampler
                 };
 
-                descriptorWrites[1] = new WriteDescriptorSet
+                WriteDescriptorSet[] descriptorWrites = new WriteDescriptorSet[]
                 {
-                    SType = StructureType.WriteDescriptorSet,
-                    DstSet = descriptorSets[i],
-                    DstBinding = 1,
-                    DstArrayElement = 0,
-                    DescriptorType = DescriptorType.CombinedImageSampler,
-                    DescriptorCount = 1,
-                    PImageInfo = &imageInfo,
+                    new WriteDescriptorSet
+                    (
+                        dstSet: descriptorSets[i],
+                        dstBinding: 0,
+                        dstArrayElement: 0,
+                        descriptorType: DescriptorType.UniformBuffer,
+                        descriptorCount: 1,
+                        pBufferInfo: &bufferInfo
+                    ),
 
+                    new WriteDescriptorSet
+                    (
+                        dstSet: descriptorSets[i],
+                        dstBinding: 1,
+                        dstArrayElement: 0,
+                        descriptorType: DescriptorType.CombinedImageSampler,
+                        descriptorCount: 1,
+                        pImageInfo: &imageInfo
+                    )
                 };
 
-                vk.UpdateDescriptorSets(
-                    device,
-                    (uint)descriptorWrites.Length,
-                    new ReadOnlySpan<WriteDescriptorSet>(descriptorWrites),
-                    0,
-                    (CopyDescriptorSet*)null
-                    );
-
+                device.UpdateDescriptorSets(descriptorWrites, null);                
             }
         }
 
         void CreateCommandBuffer()
         {
-            CommandBufferAllocateInfo allocInfo = new(                          
+            CommandBufferAllocateInfo allocInfo = new
+            (                          
                 commandPool: commandPool,
                 level: CommandBufferLevel.Primary,
                 commandBufferCount: MAX_FRAMES_IN_FLIGHT
@@ -811,7 +748,7 @@ namespace VulkanTest
 
         void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint imageIndex)
         {          
-            commandBuffer.Begin(new(flags: 0, pInheritanceInfo: null));
+            commandBuffer.Begin(new(flags:0));
          
             ClearValue* clearValues = stackalloc[]
                 {
@@ -820,13 +757,13 @@ namespace VulkanTest
                 };
 
             RenderPassBeginInfo renderPassInfo = new
-                (                          
-                    renderPass: renderPass,
-                    framebuffer: swapChainFramebuffers[imageIndex],
-                    clearValueCount: 2,
-                    pClearValues: clearValues,
-                    renderArea: new(new Offset2D(0, 0), swapChainExtent)
-                );
+            (                          
+                renderPass: renderPass,
+                framebuffer: swapChainFramebuffers[imageIndex],
+                clearValueCount: 2,
+                pClearValues: clearValues,
+                renderArea: new(new Offset2D(0, 0), swapChainExtent)
+            );
        
             commandBuffer.BeginRenderPass(renderPassInfo, SubpassContents.Inline);
 
@@ -848,38 +785,24 @@ namespace VulkanTest
 
         void CreateSyncObjects()
         {
-            imageAvailableSemaphores = new Semaphore[MAX_FRAMES_IN_FLIGHT];
-            renderFinishedSemaphores = new Semaphore[MAX_FRAMES_IN_FLIGHT];
-            inFlightFences = new Fence[MAX_FRAMES_IN_FLIGHT];
-
-            SemaphoreCreateInfo semaphoreInfo = new()
-            {
-                SType = StructureType.SemaphoreCreateInfo
-            };
-
-            FenceCreateInfo fenceInfo = new()
-            {
-                SType = StructureType.FenceCreateInfo,
-                Flags = FenceCreateFlags.FenceCreateSignaledBit
-            };
-
+            imageAvailableSemaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
+            renderFinishedSemaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
+            inFlightFences = new VkFence[MAX_FRAMES_IN_FLIGHT];
+        
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                if ((vk.CreateSemaphore(device, semaphoreInfo, null, out imageAvailableSemaphores[i]) != Result.Success) ||
-                    (vk.CreateSemaphore(device, semaphoreInfo, null, out renderFinishedSemaphores[i]) != Result.Success) ||
-                    (vk.CreateFence(device, fenceInfo, null, out inFlightFences[i]) != Result.Success))
-                {
-                    throw new Exception("failed to create semaphores!");
-                }
+                imageAvailableSemaphores[i] = new VkSemaphore(device, new(flags: 0));
+                renderFinishedSemaphores[i] = new VkSemaphore(device, new(flags: 0));
+                inFlightFences[i] = new VkFence(device, new(flags: FenceCreateFlags.FenceCreateSignaledBit));             
             }
         }
 
         void DrawFrame()
         {
-            vk.WaitForFences(device, 1, inFlightFences[currentFrame], true, ulong.MaxValue);
-           
+            device.WaitForFences(inFlightFences[currentFrame], ulong.MaxValue);
+                    
             (uint imageIndex, Result result) = swapChainData.SwapChain.AquireNextImage(ulong.MaxValue,
-                imageAvailableSemaphores[currentFrame], new Fence(null));
+                imageAvailableSemaphores[currentFrame], null);
 
             if (result == Result.ErrorOutOfDateKhr || result == Result.SuboptimalKhr || isFramebufferResized)
             {
@@ -892,7 +815,7 @@ namespace VulkanTest
                 throw new Exception("failed to acquire swap chain image!");
             }
 
-            vk.ResetFences(device, 1, inFlightFences[currentFrame]);
+            device.ResetFences(inFlightFences[currentFrame]);
 
             commandBuffers[currentFrame].Reset(0);
 
@@ -900,16 +823,17 @@ namespace VulkanTest
 
             UpdateUniformBuffer(imageIndex);
 
-            Semaphore* waitSemaphores = stackalloc[] { imageAvailableSemaphores[currentFrame] };
-            PipelineStageFlags* waitStages = stackalloc[] { PipelineStageFlags.PipelineStageColorAttachmentOutputBit };
+            Semaphore waitSemaphore = imageAvailableSemaphores[currentFrame];
+            PipelineStageFlags waitStages = PipelineStageFlags.PipelineStageColorAttachmentOutputBit;
             Semaphore signalSemaphore = renderFinishedSemaphores[currentFrame];
             
             CommandBuffer commandBuffer = commandBuffers[currentFrame];
 
-            SubmitInfo submitInfo = new(                           
+            SubmitInfo submitInfo = new
+            (                           
                 waitSemaphoreCount: 1,
-                pWaitSemaphores: waitSemaphores,
-                pWaitDstStageMask: waitStages,
+                pWaitSemaphores: &waitSemaphore,
+                pWaitDstStageMask: &waitStages,
                 commandBufferCount: 1,
                 pCommandBuffers: &commandBuffer,
                 signalSemaphoreCount: 1,
@@ -922,7 +846,8 @@ namespace VulkanTest
             
             SwapchainKHR swapChain = swapChainData.SwapChain;
 
-            PresentInfoKHR presentInfo = new(          
+            PresentInfoKHR presentInfo = new
+            (                 
                 waitSemaphoreCount: 1,
                 pWaitSemaphores: &signalSemaphore,
                 swapchainCount: 1,
@@ -933,9 +858,7 @@ namespace VulkanTest
 
             presentQueue.PresentKHR(swapChainData.SwapChain, presentInfo);            
         }
-
-        static readonly long startTime = DateTime.Now.Ticks;
-
+        
         void UpdateUniformBuffer(uint currentImage)
         {
             long currentTime = DateTime.Now.Ticks;
@@ -991,9 +914,9 @@ namespace VulkanTest
                 framebuffer.Dispose();              
             }
 
-            vk.DestroyPipeline(device, graphicsPipeline, null);
-            vk.DestroyPipelineLayout(device, pipelineLayout, null);
-            vk.DestroyRenderPass(device, renderPass, null);
+            graphicsPipeline.Dispose();
+            pipelineLayout.Dispose();       
+            renderPass.Dispose();
 
             swapChainData.Clear(device);      
         }
@@ -1002,9 +925,9 @@ namespace VulkanTest
         {
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
             {
-                vk.DestroySemaphore(device, imageAvailableSemaphores[i], null);
-                vk.DestroySemaphore(device, renderFinishedSemaphores[i], null);
-                vk.DestroyFence(device, inFlightFences[i], null);
+                imageAvailableSemaphores[i].Dispose();
+                renderFinishedSemaphores[i].Dispose();
+                inFlightFences[i].Dispose();             
             }
 
             commandPool.Dispose();
@@ -1018,8 +941,8 @@ namespace VulkanTest
 
             textureData.Dispose();
 
-            vk.DestroyDescriptorPool(device, descriptorPool, null);
-            vk.DestroyDescriptorSetLayout(device, descriptorSetLayout, null);
+            descriptorPool.Dispose();
+            descriptorSetLayout.Dispose();
 
             indexBuffer.Dispose();      
             vertexBuffer.Dispose();
@@ -1032,9 +955,6 @@ namespace VulkanTest
    
             window.Close();
             window.Dispose();
-
         }
-
     }
-
 }

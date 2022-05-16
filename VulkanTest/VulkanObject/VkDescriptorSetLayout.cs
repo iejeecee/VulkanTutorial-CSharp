@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,49 +17,27 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkImage : IDisposable
+    unsafe class VkDescriptorSetLayout : IDisposable
     {
+        DescriptorSetLayout descriptorSetLayout;
         readonly Vk vk;
         readonly VkDevice device;
-
-        Image image;
         private bool disposedValue;
 
-        public VkImage(VkDevice device, Image image)
+        public VkDescriptorSetLayout(VkDevice device, in DescriptorSetLayoutCreateInfo createInfo)
         {
             vk = Vk.GetApi();
             this.device = device;
 
-            this.image = image;
-        }
-
-        public VkImage(VkDevice device, in ImageCreateInfo createInfo)
-        {
-            vk = Vk.GetApi();
-            this.device = device;
-
-            Result result = vk.CreateImage(device, createInfo, null, out image);
+            Result result = vk.CreateDescriptorSetLayout(device, createInfo, null, out descriptorSetLayout);
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating image");
+                throw new ResultException("Error creating descriptor set layout");
             }
-         
         }
 
-        public void BindMemory(VkDeviceMemory memory, ulong memoryOffset = 0)
-        {
-            vk.BindImageMemory(device, this, memory, memoryOffset);
-        }
-
-        public MemoryRequirements GetMemoryRequirements()
-        {
-            vk.GetImageMemoryRequirements(device, this, out MemoryRequirements memoryRequirements);
-
-            return memoryRequirements;
-        }
-     
-        public static implicit operator Image(VkImage i) => i.image;
+        public static implicit operator DescriptorSetLayout(VkDescriptorSetLayout d) => d.descriptorSetLayout;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -71,16 +48,17 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyImage(device, image, null);
+                vk.DestroyDescriptorSetLayout(device, this, null);
+
                 disposedValue = true;
             }
         }
 
-        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkImage()
+        // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        ~VkDescriptorSetLayout()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()
@@ -91,4 +69,6 @@ namespace VulkanTest.VulkanObject
         }
     }
 }
+
+
 

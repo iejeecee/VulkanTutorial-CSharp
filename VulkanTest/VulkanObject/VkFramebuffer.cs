@@ -20,8 +20,8 @@ namespace VulkanTest.VulkanObject
 {
     unsafe class VkFramebuffer : IDisposable
     {
-        Vk vk;
-        VkDevice device;
+        readonly Vk vk;
+        readonly VkDevice device;
 
         Framebuffer framebuffer;
         private bool disposedValue;

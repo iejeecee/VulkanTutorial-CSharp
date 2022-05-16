@@ -20,8 +20,8 @@ namespace VulkanTest.VulkanObject
 {
     unsafe class VkBuffer : IDisposable
     {
-        Vk vk;
-        VkDevice device;
+        readonly Vk vk;
+        readonly VkDevice device;
 
         Silk.NET.Vulkan.Buffer buffer;
         private bool disposedValue;

@@ -20,8 +20,8 @@ namespace VulkanTest.VulkanObject
 {
     unsafe class VkCommandPool : IDisposable
     {
-        Vk vk;
-        VkDevice device;
+        readonly Vk vk;
+        readonly VkDevice device;
 
         CommandPool commandPool;
         private bool disposedValue;
@@ -39,9 +39,7 @@ namespace VulkanTest.VulkanObject
             }
 
         }
-
-     
-             
+                  
         public static implicit operator CommandPool(VkCommandPool c) => c.commandPool;
 
         protected virtual void Dispose(bool disposing)

@@ -20,8 +20,8 @@ namespace VulkanTest.VulkanObject
 {
     unsafe class VkImageView : IDisposable
     {
-        Vk vk;
-        VkDevice device;
+        readonly Vk vk;
+        readonly VkDevice device;
 
         ImageView imageView;
         private bool disposedValue;

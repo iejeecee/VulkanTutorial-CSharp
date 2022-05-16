@@ -23,7 +23,7 @@ namespace VulkanTest.VulkanObject
         ExtDebugUtils debugUtils;
         DebugUtilsMessengerEXT debugMessenger;
         private bool disposedValue;
-        VkInstance instance;
+        readonly VkInstance instance;
 
         public ExtDebugUtils DebugUtils { get => debugUtils; protected set => debugUtils = value; }
 

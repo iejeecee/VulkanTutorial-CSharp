@@ -23,10 +23,9 @@ namespace VulkanTest.Utils
     {
         public VkBuffer buffer;
         public VkDeviceMemory deviceMemory;
-
-        ulong size;
-        BufferUsageFlags usage;
-        MemoryPropertyFlags propertyFlags;
+        readonly ulong size;
+        readonly BufferUsageFlags usage;
+        readonly MemoryPropertyFlags propertyFlags;
         private bool disposedValue;
        
         public BufferData(VkPhysicalDevice physicalDevice,

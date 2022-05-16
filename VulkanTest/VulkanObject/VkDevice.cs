@@ -46,7 +46,52 @@ namespace VulkanTest.VulkanObject
 
             return new VkQueue(queue);
         }
-                                  
+
+        public void WaitForFences(VkFence fence, ulong timeout)
+        {
+            var result = vk.WaitForFences(device, 1, fence, true, timeout);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error waiting for fence");
+            }
+        }
+
+        public void WaitForFences(ReadOnlySpan<Fence> fences, bool waitAll, ulong timeout)
+        {
+            var result = vk.WaitForFences(device, fences, waitAll, timeout);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error waiting for fences");
+            }
+        }
+
+        public void ResetFences(VkFence fence)
+        {
+            var result = vk.ResetFences(device, 1, fence);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error resetting fence");
+            }
+        }
+
+        public void ResetFences(ReadOnlySpan<Fence> fences)
+        {
+            var result = vk.ResetFences(device, fences);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error resetting fences");
+            }
+        }
+
+        public void UpdateDescriptorSets(ReadOnlySpan<WriteDescriptorSet> descriptorWrites, ReadOnlySpan<CopyDescriptorSet> descriptorCopies)
+        {
+            vk.UpdateDescriptorSets(device, descriptorWrites, descriptorCopies);
+        }
+
         public static implicit operator Device(VkDevice d) => d.device;
              
         protected virtual void Dispose(bool disposing)

@@ -20,8 +20,8 @@ namespace VulkanTest.VulkanObject
 {
     unsafe class VkDeviceMemory : IDisposable
     {
-        Vk vk;
-        VkDevice device;
+        readonly Vk vk;
+        readonly VkDevice device;
 
         DeviceMemory memory;
         private bool disposedValue;

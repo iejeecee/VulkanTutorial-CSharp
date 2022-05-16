@@ -21,7 +21,7 @@ namespace VulkanTest.VulkanObject
     {
         SurfaceKHR surface;
         KhrSurface khrSurface;
-        VkInstance instance;
+        readonly VkInstance instance;
         private bool disposedValue;
 
         public VkSurfaceKHR(IWindow window, VkInstance instance)

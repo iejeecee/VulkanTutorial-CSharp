@@ -20,7 +20,7 @@ namespace VulkanTest.VulkanObject
     unsafe class VkQueue
     {
         Queue queue;
-        Vk vk;
+        readonly Vk vk;
 
         public VkQueue(Queue queue)
         {
@@ -35,9 +35,9 @@ namespace VulkanTest.VulkanObject
             khrSwapchain.QueuePresent(this, in presentInfo);
         }
 
-        public void Submit(SubmitInfo submit, Fence fence)
+        public void Submit(SubmitInfo submit, VkFence fence)
         {
-            var result = vk.QueueSubmit(this, 1, submit, fence);
+            var result = vk.QueueSubmit(this, 1, submit, fence ?? new Fence(null));
 
             if (result != Result.Success)
             {
@@ -45,9 +45,9 @@ namespace VulkanTest.VulkanObject
             }
         }
 
-        public void Submit(Span<SubmitInfo> submits, Fence fence)
+        public void Submit(Span<SubmitInfo> submits, VkFence fence)
         {
-            var result = vk.QueueSubmit(this, submits, fence);
+            var result = vk.QueueSubmit(this, submits, fence ?? new Fence(null));
 
             if (result != Result.Success)
             {

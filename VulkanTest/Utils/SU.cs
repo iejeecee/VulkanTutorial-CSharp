@@ -304,7 +304,7 @@ namespace VulkanTest.Utils
             CommandBuffer buffer = commandBuffer;
 
             SubmitInfo submitInfo = new(commandBufferCount: 1, pCommandBuffers: &buffer);
-            queue.Submit(submitInfo, new Fence(null));
+            queue.Submit(submitInfo, null);
             queue.WaitIdle();
         }
 

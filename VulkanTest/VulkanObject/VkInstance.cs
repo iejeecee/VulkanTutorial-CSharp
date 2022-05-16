@@ -10,11 +10,10 @@ using Silk.NET.Vulkan.Extensions.EXT;
 namespace VulkanTest.VulkanObject
 {
     unsafe class VkInstance : IDisposable
-    {    
-        Vk vk;
+    {
+        readonly Vk vk;
         Instance instance;
-             
-        
+                     
         readonly string[] validationLayers;
         private bool disposedValue;
 
@@ -39,21 +38,19 @@ namespace VulkanTest.VulkanObject
                 }
             }
 
-            ApplicationInfo appInfo = new()
-            {
-                SType = StructureType.ApplicationInfo,
-                PApplicationName = (byte*)Marshal.StringToHGlobalAnsi(appName),
-                ApplicationVersion = new Version32(1, 0, 0),
-                PEngineName = (byte*)Marshal.StringToHGlobalAnsi(engineName),
-                EngineVersion = new Version32(1, 0, 0),
-                ApiVersion = apiVersion
-            };
+            ApplicationInfo appInfo = new
+            (               
+                pApplicationName: (byte*)Marshal.StringToHGlobalAnsi(appName),
+                applicationVersion: new Version32(1, 0, 0),
+                pEngineName: (byte*)Marshal.StringToHGlobalAnsi(engineName),
+                engineVersion: new Version32(1, 0, 0),
+                apiVersion: apiVersion
+            );
 
-            InstanceCreateInfo createInfo = new()
-            {
-                SType = StructureType.InstanceCreateInfo,
-                PApplicationInfo = &appInfo
-            };
+            InstanceCreateInfo createInfo = new
+            (              
+                pApplicationInfo: &appInfo
+            );
 
             var newExtensions = stackalloc byte*[extensions.Length];
 

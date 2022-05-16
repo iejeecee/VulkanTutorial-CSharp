@@ -20,7 +20,7 @@ namespace VulkanTest.VulkanObject
 {
     unsafe class VkCommandBuffer : IDisposable
     {
-        Vk vk;   
+        readonly Vk vk;   
         CommandBuffer commandBuffer;
         Device device;
         CommandPool commandPool;

@@ -21,8 +21,8 @@ namespace VulkanTest.VulkanObject
     {             
         KhrSwapchain khrSwapchain;
         SwapchainKHR swapChain;
-        VkInstance instance;
-        VkDevice device;
+        readonly VkInstance instance;
+        readonly VkDevice device;
 
         private bool disposedValue;
         
@@ -58,11 +58,12 @@ namespace VulkanTest.VulkanObject
             return swapChainImages;
         }
 
-        public (uint imageIndex, Result result) AquireNextImage(ulong timeout, in Semaphore semaphore, in Fence fence)
+        public (uint imageIndex, Result result) AquireNextImage(ulong timeout, in Semaphore semaphore, VkFence fence)
         {      
             uint imageIndex = 0;
 
-            var result = khrSwapchain.AcquireNextImage(device, swapChain, timeout, semaphore, fence, ref imageIndex);
+            var result = khrSwapchain.AcquireNextImage(device, swapChain, timeout, semaphore, fence ?? new Fence(null), 
+                ref imageIndex);
 
             return (imageIndex, result);
         }

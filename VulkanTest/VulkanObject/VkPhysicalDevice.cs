@@ -21,7 +21,7 @@ namespace VulkanTest.VulkanObject
     unsafe class VkPhysicalDevice
     {
         PhysicalDevice device;
-        Vk vk;
+        readonly Vk vk;
           
         string[] extensions;
 

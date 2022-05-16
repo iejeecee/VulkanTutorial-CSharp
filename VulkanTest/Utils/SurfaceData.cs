@@ -18,8 +18,8 @@ namespace VulkanTest.Utils
 {
     unsafe class SurfaceData : IDisposable
     {
-        VkSurfaceKHR surface;   
-        Vk vk;
+        VkSurfaceKHR surface;
+        readonly Vk vk;
         Extent2D extent;
         private bool disposedValue;
 

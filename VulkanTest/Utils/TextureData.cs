@@ -21,7 +21,7 @@ namespace VulkanTest.Utils
         public VkSampler sampler;
         public Format format;
         public Extent2D extent;
-        bool needsStaging;
+        readonly bool needsStaging;
         public BufferData stagingBufferData;
         public ImageData imageData;
         private bool disposedValue;

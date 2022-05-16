@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,49 +17,40 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkImage : IDisposable
+    unsafe class VkPipeline : IDisposable
     {
+        Pipeline pipeline;
         readonly Vk vk;
         readonly VkDevice device;
-
-        Image image;
         private bool disposedValue;
 
-        public VkImage(VkDevice device, Image image)
+        public VkPipeline(VkDevice device, PipelineCache pipelineCache, in GraphicsPipelineCreateInfo pipelineInfo)
         {
             vk = Vk.GetApi();
             this.device = device;
-
-            this.image = image;
-        }
-
-        public VkImage(VkDevice device, in ImageCreateInfo createInfo)
-        {
-            vk = Vk.GetApi();
-            this.device = device;
-
-            Result result = vk.CreateImage(device, createInfo, null, out image);
+           
+            Result result = vk.CreateGraphicsPipelines(device, pipelineCache, 1, in pipelineInfo, null, out pipeline);
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating image");
+                throw new ResultException("Error creating graphics pipeline");
             }
-         
         }
 
-        public void BindMemory(VkDeviceMemory memory, ulong memoryOffset = 0)
+        public VkPipeline(VkDevice device, PipelineCache pipelineCache, in ComputePipelineCreateInfo pipelineInfo)
         {
-            vk.BindImageMemory(device, this, memory, memoryOffset);
+            vk = Vk.GetApi();
+            this.device = device;
+
+            Result result = vk.CreateComputePipelines(device, pipelineCache, 1, in pipelineInfo, null, out pipeline);
+
+            if (result != Result.Success)
+            {
+                throw new ResultException("Error creating compute pipeline");
+            }
         }
 
-        public MemoryRequirements GetMemoryRequirements()
-        {
-            vk.GetImageMemoryRequirements(device, this, out MemoryRequirements memoryRequirements);
-
-            return memoryRequirements;
-        }
-     
-        public static implicit operator Image(VkImage i) => i.image;
+        public static implicit operator Pipeline(VkPipeline p) => p.pipeline;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -71,16 +61,17 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyImage(device, image, null);
+                vk.DestroyPipeline(device, this, null);
+
                 disposedValue = true;
             }
         }
 
-        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkImage()
+        // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        ~VkPipeline()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()
@@ -91,4 +82,5 @@ namespace VulkanTest.VulkanObject
         }
     }
 }
+
 

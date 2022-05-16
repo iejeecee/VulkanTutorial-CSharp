@@ -20,8 +20,8 @@ namespace VulkanTest.VulkanObject
     unsafe class VkSampler : IDisposable
     {
         Sampler sampler;
-        Vk vk;
-        VkDevice device;
+        readonly Vk vk;
+        readonly VkDevice device;
         private bool disposedValue;
 
         public VkSampler(VkDevice device, in SamplerCreateInfo createInfo)
