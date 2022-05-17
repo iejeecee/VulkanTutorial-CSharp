@@ -30,7 +30,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error allocating command buffers");
+                ResultException.Throw(result, "Error allocating command buffers");
             }
 
             for (int i = 0; i < allocateInfo.CommandBufferCount; i++)

@@ -35,7 +35,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error allocating device memory");
+                ResultException.Throw(result, "Error allocating device memory");
             }
 
         }
@@ -48,7 +48,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error mapping device memory");
+                ResultException.Throw(result, "Error mapping device memory");
             }
 
             return data;

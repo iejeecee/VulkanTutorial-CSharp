@@ -43,7 +43,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating image");
+                ResultException.Throw(result, "Error creating image");
             }
          
         }

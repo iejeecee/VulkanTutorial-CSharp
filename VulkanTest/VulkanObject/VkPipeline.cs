@@ -33,7 +33,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating graphics pipeline");
+                ResultException.Throw(result, "Error creating graphics pipeline");
             }
         }
 
@@ -46,7 +46,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating compute pipeline");
+                ResultException.Throw(result, "Error creating compute pipeline");
             }
         }
 

@@ -32,8 +32,8 @@ namespace VulkanTest.Utils
             
         }
 
-        public static void CreateWindow(string windowName, Extent2D size,
-            out IWindow window, out string[] requiredExtensions)
+        public static IWindow CreateWindow(string windowName, Extent2D size,
+            out string[] requiredExtensions)
         {
             var opts = WindowOptions.DefaultVulkan;
             opts.Title = windowName;
@@ -42,7 +42,7 @@ namespace VulkanTest.Utils
             // Uncomment the line below to use SDL
             // Window.PrioritizeSdl();
 
-            window = Window.Create(opts);
+            IWindow window = Window.Create(opts);
             window.Initialize(); // For safety the window should be initialized before querying the VkSurface
 
             if (window.VkSurface is null)
@@ -58,6 +58,7 @@ namespace VulkanTest.Utils
                 requiredExtensions[i] = Marshal.PtrToStringUTF8((nint)reqExtensions[i]);
             }
 
+            return window;
         }
 
         public VkSurfaceKHR Surface { get => surface; protected set => surface = value; }      

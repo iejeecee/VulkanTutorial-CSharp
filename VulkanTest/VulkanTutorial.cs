@@ -97,7 +97,7 @@ namespace VulkanTest
 
         void InitWindow()
         {         
-            SurfaceData.CreateWindow("hello world", new Extent2D(800, 600), out window,
+            window = SurfaceData.CreateWindow("hello world", new Extent2D(800, 600), 
                 out requiredExtensions);
 
             window.FramebufferResize += OnFramebufferResize;

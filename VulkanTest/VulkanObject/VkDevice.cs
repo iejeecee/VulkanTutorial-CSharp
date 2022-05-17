@@ -53,7 +53,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error waiting for fence");
+                ResultException.Throw(result, "Error waiting for fence");
             }
         }
 
@@ -63,7 +63,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error waiting for fences");
+                ResultException.Throw(result, "Error waiting for fences");
             }
         }
 
@@ -73,7 +73,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error resetting fence");
+                ResultException.Throw(result, "Error resetting fence");
             }
         }
 
@@ -83,7 +83,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error resetting fences");
+                ResultException.Throw(result, "Error resetting fences");
             }
         }
 

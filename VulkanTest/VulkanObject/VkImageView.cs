@@ -35,7 +35,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating image view");
+                ResultException.Throw(result, "Error creating image view");
             }
             
 

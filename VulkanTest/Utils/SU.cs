@@ -219,9 +219,11 @@ namespace VulkanTest.Utils
                 createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);
             }
 
-            if (vk.CreateDevice(physicalDevice, in createInfo, null, out Device device) != Result.Success)
+            var result = vk.CreateDevice(physicalDevice, in createInfo, null, out Device device);
+
+            if(result != Result.Success)
             {
-                throw new ResultException("Error creating logical device");
+                ResultException.Throw(result, "Error creating logical device");
             }
 
             return new VkDevice(instance, device);

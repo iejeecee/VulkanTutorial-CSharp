@@ -33,7 +33,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating descriptor set layout");
+                ResultException.Throw(result, "Error creating descriptor set layout");
             }
         }
 

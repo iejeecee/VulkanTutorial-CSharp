@@ -41,7 +41,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error submitting queue");
+                ResultException.Throw(result, "Error submitting queue");
             }
         }
 
@@ -51,7 +51,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error submitting queue");
+                ResultException.Throw(result, "Error submitting queue");
             }
         }
 

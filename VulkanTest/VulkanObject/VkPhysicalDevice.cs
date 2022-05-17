@@ -51,7 +51,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfaceSupport(device, queueFamilyIndex, surface, out Bool32 presentSupport);
             if (result != Result.Success)
             {
-                throw new ResultException("Error getting supported surfaces by physical device");
+                ResultException.Throw(result, "Error getting supported surfaces by physical device");
             }
 
             return presentSupport;
@@ -66,7 +66,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfaceFormats(device, surface, &surfaceFormatCount, null);
             if (result != Result.Success)
             {
-                throw new ResultException("Error getting physical device supported surface formats");
+                ResultException.Throw(result, "Error getting physical device supported surface formats");
             }
 
             SurfaceFormatKHR[] surfaceFormats = new SurfaceFormatKHR[surfaceFormatCount];
@@ -74,7 +74,7 @@ namespace VulkanTest.VulkanObject
             result = khrSurface.GetPhysicalDeviceSurfaceFormats(device, surface, &surfaceFormatCount, surfaceFormats);
             if (result != Result.Success)
             {
-                throw new ResultException("Error getting physical device supported surface formats");
+                ResultException.Throw(result, "Error getting physical device supported surface formats");
             }
 
             return surfaceFormats;
@@ -87,7 +87,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfaceCapabilities(device, surface, out SurfaceCapabilitiesKHR surfaceCapabilities);
             if (result != Result.Success)
             {
-                throw new ResultException("Error getting physical device supported surface capabilities");
+                ResultException.Throw(result, "Error getting physical device supported surface capabilities");
             }
 
             return surfaceCapabilities;
@@ -102,7 +102,7 @@ namespace VulkanTest.VulkanObject
             Result result = khrSurface.GetPhysicalDeviceSurfacePresentModes(device, surface, &presentModesCount, null);
             if (result != Result.Success)
             {
-                throw new ResultException("Error getting physical device supported surface present modes");
+                ResultException.Throw(result, "Error getting physical device supported surface present modes");
             }
 
             PresentModeKHR[] presentModes = new PresentModeKHR[presentModesCount];
@@ -110,7 +110,7 @@ namespace VulkanTest.VulkanObject
             result = khrSurface.GetPhysicalDeviceSurfacePresentModes(device, surface, &presentModesCount, presentModes);
             if (result != Result.Success)
             {
-                throw new ResultException("Error getting physical device supported surface present modes");
+                ResultException.Throw(result, "Error getting physical device supported surface present modes");
             }
 
             return presentModes;

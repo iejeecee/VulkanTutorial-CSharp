@@ -45,7 +45,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error trying begin commandbuffer");
+                ResultException.Throw(result, "Error trying begin commandbuffer");
             }
         }
 
@@ -115,7 +115,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error trying end commandbuffer");
+                ResultException.Throw(result, "Error trying end commandbuffer");
             }
         }
 
@@ -125,7 +125,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error trying reset commandbuffer");
+                ResultException.Throw(result, "Error trying reset commandbuffer");
             }
         }
 

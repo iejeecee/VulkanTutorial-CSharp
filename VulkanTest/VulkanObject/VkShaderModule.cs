@@ -33,7 +33,7 @@ namespace VulkanTest.VulkanObject
 
             if (result != Result.Success)
             {
-                throw new ResultException("Error creating shader module");
+                ResultException.Throw(result, "Error creating shader module");
             }
         }
 
