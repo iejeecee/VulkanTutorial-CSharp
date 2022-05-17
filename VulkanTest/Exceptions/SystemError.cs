@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace VulkanTest.Exceptions
 {
     [Serializable]
-    internal class SystemError : Exception
+    public class SystemError : Exception
     {
         public SystemError()
         {

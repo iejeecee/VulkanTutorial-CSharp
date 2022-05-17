@@ -78,26 +78,27 @@ namespace VulkanTest
         readonly string[] deviceExtensions = { KhrSwapchain.ExtensionName };
         
         readonly Vertex[] vertices = new Vertex[]
-           {
-                new Vertex(new (-0.5f, -0.5f, 0.0f), new (1.0f, 0.0f, 0.0f), new (1.0f, 0.0f)),
-                new Vertex(new (0.5f, -0.5f, 0.0f), new (0.0f, 1.0f, 0.0f), new (0.0f, 0.0f)),
-                new Vertex(new (0.5f, 0.5f, 0.0f), new (0.0f, 0.0f, 1.0f), new (0.0f, 1.0f)),
-                new Vertex(new (-0.5f, 0.5f, 0.0f), new (1.0f, 1.0f, 1.0f), new (1.0f, 1.0f)),
+        {
+            new Vertex(new (-0.5f, -0.5f, 0.0f), new (1.0f, 0.0f, 0.0f), new (1.0f, 0.0f)),
+            new Vertex(new (0.5f, -0.5f, 0.0f), new (0.0f, 1.0f, 0.0f), new (0.0f, 0.0f)),
+            new Vertex(new (0.5f, 0.5f, 0.0f), new (0.0f, 0.0f, 1.0f), new (0.0f, 1.0f)),
+            new Vertex(new (-0.5f, 0.5f, 0.0f), new (1.0f, 1.0f, 1.0f), new (1.0f, 1.0f)),
 
-                new Vertex(new (-0.5f, -0.5f, -0.5f), new (1.0f, 0.0f, 0.0f), new (1.0f, 0.0f)),
-                new Vertex(new (0.5f, -0.5f, -0.5f), new (0.0f, 1.0f, 0.0f), new (0.0f, 0.0f)),
-                new Vertex(new (0.5f, 0.5f, -0.5f), new (0.0f, 0.0f, 1.0f), new (0.0f, 1.0f)),
-                new Vertex(new (-0.5f, 0.5f, -0.5f), new (1.0f, 1.0f, 1.0f), new (1.0f, 1.0f))
-           };
+            new Vertex(new (-0.5f, -0.5f, -0.5f), new (1.0f, 0.0f, 0.0f), new (1.0f, 0.0f)),
+            new Vertex(new (0.5f, -0.5f, -0.5f), new (0.0f, 1.0f, 0.0f), new (0.0f, 0.0f)),
+            new Vertex(new (0.5f, 0.5f, -0.5f), new (0.0f, 0.0f, 1.0f), new (0.0f, 1.0f)),
+            new Vertex(new (-0.5f, 0.5f, -0.5f), new (1.0f, 1.0f, 1.0f), new (1.0f, 1.0f))
+        };
 
-        readonly ushort[] indices = new ushort[] {
+        readonly ushort[] indices = new ushort[] 
+        {
             0, 1, 2, 2, 3, 0,
             4, 5, 6, 6, 7, 4
         };
 
         void InitWindow()
         {         
-            window = SurfaceData.CreateWindow("hello world", new Extent2D(800, 600), 
+            window = SurfaceData.CreateWindow("Texture Demo", new Extent2D(800, 600), 
                 out requiredExtensions);
 
             window.FramebufferResize += OnFramebufferResize;
@@ -204,7 +205,8 @@ namespace VulkanTest
 
             fixed (byte* codePtr = code)
             {
-                ShaderModuleCreateInfo createInfo = new(                                 
+                ShaderModuleCreateInfo createInfo = new
+                (                                 
                     codeSize: (nuint)code.Length,
                     pCode: (uint*)codePtr
                 );
@@ -751,10 +753,10 @@ namespace VulkanTest
             commandBuffer.Begin(new(flags:0));
          
             ClearValue* clearValues = stackalloc[]
-                {
-                    new ClearValue(new ClearColorValue(0, 0, 0, 1)),
-                    new ClearValue(null, new ClearDepthStencilValue(1.0f, 0))
-                };
+            {
+                new ClearValue(new ClearColorValue(0, 0, 0, 1)),
+                new ClearValue(null, new ClearDepthStencilValue(1.0f, 0))
+            };
 
             RenderPassBeginInfo renderPassInfo = new
             (                          

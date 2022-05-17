@@ -95,7 +95,49 @@ namespace VulkanTest.Utils
                 messageTypeStr = "validation ";
             }
 
-            Debug.Print($"VK ({messageTypeStr}{messageSeverity}): {Marshal.PtrToStringAnsi(new IntPtr(callbackData->PMessage))}");
+            string messageIdName = Marshal.PtrToStringAnsi((nint)callbackData->PMessageIdName);
+            int messageIdNumber= callbackData->MessageIdNumber;
+            string message = Marshal.PtrToStringAnsi((nint)callbackData->PMessage);
+                     
+            if (callbackData->QueueLabelCount > 0)
+            {
+                message += "\n\tQueue Labels:\n";
+                for (uint i = 0; i < callbackData->QueueLabelCount; i++)
+                {
+                    string labelName = Marshal.PtrToStringAnsi((nint)callbackData->PQueueLabels[i].PLabelName);
+
+                    message += $"\t\tlabelName = <${labelName}>";
+                }
+            }
+
+            if (callbackData->CmdBufLabelCount > 0)
+            {
+                message += "\n\tCommandBuffer Labels:\n";
+                for (uint i = 0; i < callbackData->CmdBufLabelCount; i++)
+                {
+                    string labelName = Marshal.PtrToStringAnsi((nint)callbackData->PCmdBufLabels[i].PLabelName);
+
+                    message += $"\t\tlabelName = <${labelName}>";
+                }
+            }
+
+            if (callbackData->ObjectCount > 0)
+            {
+                for (uint i = 0; i < callbackData->ObjectCount; i++)
+                {
+                    message += $"\n\tObject {i}\n";
+                    message += $"\t\tobjectType = {callbackData->PObjects[i].ObjectType}\n";
+                    message += $"\t\tobjectHandle = {callbackData->PObjects[i].ObjectHandle}";
+                    if (callbackData->PObjects[i].PObjectName != null)
+                    {
+                        string objectName = Marshal.PtrToStringAnsi((nint)callbackData->PObjects[i].PObjectName);
+
+                        message += $"\n\t\tobjectName = <{objectName}>";
+                    }
+                }
+            }
+
+            Debug.Print($"VK ({messageTypeStr}{messageSeverity}) {messageIdName}: {message}");
 
             return Vk.False;
         }
