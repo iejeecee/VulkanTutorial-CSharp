@@ -155,7 +155,27 @@ namespace VulkanTest.VulkanObject
         {
             vk.CmdPipelineBarrier(this, srcStageMask, dstStageMask, dependencyFlags, memoryBarriers, bufferMemoryBarriers, imageMemoryBarriers);
         }
-     
+
+        public void SetViewport(in Viewport viewPort)
+        {
+            vk.CmdSetViewport(this, 0, 1, viewPort);
+        }
+
+        public void SetViewport(uint firstViewport, Span<Viewport> viewPorts)
+        {
+            vk.CmdSetViewport(this, firstViewport, viewPorts);
+        }
+
+        public void SetScissor(in Rect2D scissor)
+        {
+            vk.CmdSetScissor(this, 0, 1, scissor);
+        }
+
+        public void SetScissor(uint firstScissor, Span<Rect2D> scissors)
+        {
+            vk.CmdSetScissor(this, firstScissor, scissors);
+        }
+
         public static implicit operator CommandBuffer(VkCommandBuffer c) => c.commandBuffer;
 
         protected virtual void Dispose(bool disposing)

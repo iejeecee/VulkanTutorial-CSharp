@@ -62,5 +62,22 @@ namespace VulkanTest
 
             return attributeDescriptions;
         }
+
+        public static uint GetStride()
+        {
+            return (uint)sizeof(Vertex);
+        }
+
+        public static (Format format, uint offset)[] GetAttributeFormatsAndOffsets()
+        {
+            (Format, uint)[] results = new (Format, uint)[]
+                {
+                    new (Format.R32G32B32Sfloat, (uint)Marshal.OffsetOf(typeof(Vertex), nameof(pos))),
+                    new (Format.R32G32B32Sfloat, (uint)Marshal.OffsetOf(typeof(Vertex), nameof(color))),
+                    new (Format.R32G32Sfloat, (uint)Marshal.OffsetOf(typeof(Vertex), nameof(texCoord)))
+                };
+
+            return results;
+        }
     }
 }

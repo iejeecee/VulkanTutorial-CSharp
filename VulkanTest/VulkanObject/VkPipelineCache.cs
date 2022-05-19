@@ -17,40 +17,27 @@ using VulkanTest.Utils;
 
 namespace VulkanTest.VulkanObject
 {
-    unsafe class VkPipeline : IDisposable
+    unsafe class VkPipelineCache : IDisposable
     {
-        Pipeline pipeline;
+        PipelineCache pipelineCache;
         readonly Vk vk;
         readonly VkDevice device;
         private bool disposedValue;
 
-        public VkPipeline(VkDevice device, VkPipelineCache pipelineCache, in GraphicsPipelineCreateInfo pipelineInfo)
-        {
-            vk = Vk.GetApi();
-            this.device = device;
-           
-            Result result = vk.CreateGraphicsPipelines(device, pipelineCache ?? new PipelineCache(null), 1, pipelineInfo, null, out pipeline);
-
-            if (result != Result.Success)
-            {
-                ResultException.Throw(result, "Error creating graphics pipeline");
-            }
-        }
-
-        public VkPipeline(VkDevice device, VkPipelineCache pipelineCache, in ComputePipelineCreateInfo pipelineInfo)
+        public VkPipelineCache(VkDevice device, in PipelineCacheCreateInfo createInfo)
         {
             vk = Vk.GetApi();
             this.device = device;
 
-            Result result = vk.CreateComputePipelines(device, pipelineCache ?? new PipelineCache(null), 1, pipelineInfo, null, out pipeline);
+            Result result = vk.CreatePipelineCache(device, createInfo, null, out pipelineCache);
 
             if (result != Result.Success)
             {
-                ResultException.Throw(result, "Error creating compute pipeline");
+                ResultException.Throw(result, "Error creating pipeline cache");
             }
         }
 
-        public static implicit operator Pipeline(VkPipeline p) => p.pipeline;
+        public static implicit operator PipelineCache(VkPipelineCache p) => p.pipelineCache;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -61,14 +48,14 @@ namespace VulkanTest.VulkanObject
                     // TODO: dispose managed state (managed objects)
                 }
 
-                vk.DestroyPipeline(device, this, null);
+                vk.DestroyPipelineCache(device, this, null);
 
                 disposedValue = true;
             }
         }
 
         // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        ~VkPipeline()
+        ~VkPipelineCache()
         {
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: false);
@@ -82,5 +69,3 @@ namespace VulkanTest.VulkanObject
         }
     }
 }
-
-

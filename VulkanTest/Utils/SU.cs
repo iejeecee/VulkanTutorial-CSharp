@@ -29,7 +29,7 @@ namespace VulkanTest.Utils
             uint memoryTypeIndex = FindMemoryType(memoryProperties, memoryRequirements.MemoryTypeBits, memoryPropertyFlags);
 
             MemoryAllocateInfo allocInfo = new
-            (                         
+            (
                 allocationSize: memoryRequirements.Size,
                 memoryTypeIndex: memoryTypeIndex
             );
@@ -96,9 +96,9 @@ namespace VulkanTest.Utils
             }
 
             string messageIdName = Marshal.PtrToStringAnsi((nint)callbackData->PMessageIdName);
-            int messageIdNumber= callbackData->MessageIdNumber;
+            int messageIdNumber = callbackData->MessageIdNumber;
             string message = Marshal.PtrToStringAnsi((nint)callbackData->PMessage);
-                     
+
             if (callbackData->QueueLabelCount > 0)
             {
                 message += "\n\tQueue Labels:\n";
@@ -233,7 +233,7 @@ namespace VulkanTest.Utils
             foreach (var queueId in uniqueQueueFamilies)
             {
                 DeviceQueueCreateInfo queueCreateInfo = new
-                (                                   
+                (
                     queueFamilyIndex: queueId,
                     queueCount: 1,
                     pQueuePriorities: &queuePriority
@@ -243,7 +243,7 @@ namespace VulkanTest.Utils
             };
 
             DeviceCreateInfo createInfo = new
-            (             
+            (
                 pQueueCreateInfos: queueCreateInfos,
                 queueCreateInfoCount: (uint)uniqueQueueFamilies.Count,
                 pEnabledFeatures: &deviceFeatures
@@ -263,7 +263,7 @@ namespace VulkanTest.Utils
 
             var result = vk.CreateDevice(physicalDevice, in createInfo, null, out Device device);
 
-            if(result != Result.Success)
+            if (result != Result.Success)
             {
                 ResultException.Throw(result, "Error creating logical device");
             }
@@ -404,7 +404,7 @@ namespace VulkanTest.Utils
             {
                 case ImageLayout.TransferDstOptimal:
                     {
-                        sourceAccessMask = AccessFlags.AccessTransferWriteBit; 
+                        sourceAccessMask = AccessFlags.AccessTransferWriteBit;
                         break;
                     }
                 case ImageLayout.Preinitialized:
@@ -430,7 +430,7 @@ namespace VulkanTest.Utils
                 case ImageLayout.General:
                 case ImageLayout.Preinitialized:
                     {
-                        sourceStage = PipelineStageFlags.PipelineStageHostBit; 
+                        sourceStage = PipelineStageFlags.PipelineStageHostBit;
                         break;
                     }
                 case ImageLayout.TransferDstOptimal:
@@ -440,7 +440,7 @@ namespace VulkanTest.Utils
                     }
                 case ImageLayout.Undefined:
                     {
-                        sourceStage = PipelineStageFlags.PipelineStageTopOfPipeBit; 
+                        sourceStage = PipelineStageFlags.PipelineStageTopOfPipeBit;
                         break;
                     }
                 default:
@@ -456,7 +456,7 @@ namespace VulkanTest.Utils
             {
                 case ImageLayout.ColorAttachmentOptimal:
                     {
-                        destinationAccessMask = AccessFlags.AccessColorAttachmentWriteBit; 
+                        destinationAccessMask = AccessFlags.AccessColorAttachmentWriteBit;
                         break;
                     }
                 case ImageLayout.DepthStencilAttachmentOptimal:
@@ -497,7 +497,7 @@ namespace VulkanTest.Utils
             {
                 case ImageLayout.ColorAttachmentOptimal:
                     {
-                        destinationStage = PipelineStageFlags.PipelineStageColorAttachmentOutputBit; 
+                        destinationStage = PipelineStageFlags.PipelineStageColorAttachmentOutputBit;
                         break;
                     }
                 case ImageLayout.DepthStencilAttachmentOptimal:
@@ -538,14 +538,14 @@ namespace VulkanTest.Utils
             if (newImageLayout == ImageLayout.DepthStencilAttachmentOptimal)
             {
                 aspectMask = ImageAspectFlags.ImageAspectDepthBit;
-                
+
                 if (format == Format.D32SfloatS8Uint || format == Format.D24UnormS8Uint)
                 {
                     aspectMask |= ImageAspectFlags.ImageAspectStencilBit;
                 }
             }
-           
-            ImageSubresourceRange imageSubresourceRange = new(aspectMask, 0, 1, 0, 1 );
+
+            ImageSubresourceRange imageSubresourceRange = new(aspectMask, 0, 1, 0, 1);
             ImageMemoryBarrier imageMemoryBarrier = new
             (
                 srcAccessMask: sourceAccessMask,
@@ -561,6 +561,263 @@ namespace VulkanTest.Utils
             var imageMemoryBarriers = new ReadOnlySpan<ImageMemoryBarrier>(new[] { imageMemoryBarrier });
 
             commandBuffer.PipelineBarrier(sourceStage, destinationStage, 0, null, null, imageMemoryBarriers);
+        }
+
+        public static VkPipeline MakeGraphicsPipeline(VkDevice device,
+                                        VkPipelineCache pipelineCache,
+                                        VkShaderModule vertexShaderModule,
+                                        SpecializationInfo vertexShaderSpecializationInfo,
+                                        VkShaderModule fragmentShaderModule,
+                                        SpecializationInfo fragmentShaderSpecializationInfo,
+                                        uint vertexStride,
+                                        (Format, uint)[] vertexInputAttributeFormatOffset,
+                                        FrontFace frontFace,
+                                        bool depthBuffered,
+                                        VkPipelineLayout pipelineLayout,
+                                        VkRenderPass renderPass)
+        {
+
+
+            PipelineShaderStageCreateInfo* pipelineShaderStageCreateInfos = stackalloc[]
+            {
+                new PipelineShaderStageCreateInfo(
+                    stage: ShaderStageFlags.ShaderStageVertexBit,
+                    module: vertexShaderModule,
+                    pName: (byte*)SilkMarshal.StringToPtr("main"),
+                    pSpecializationInfo: &vertexShaderSpecializationInfo),
+
+                new PipelineShaderStageCreateInfo(
+                    stage: ShaderStageFlags.ShaderStageFragmentBit,
+                    module: fragmentShaderModule,
+                    pName: (byte*)SilkMarshal.StringToPtr("main"),
+                    pSpecializationInfo: &fragmentShaderSpecializationInfo)
+            };
+
+            PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = new(flags: 0);
+            VertexInputBindingDescription vertexInputBindingDescription = new(0, vertexStride);
+
+            if (vertexStride > 0)
+            {
+                VertexInputAttributeDescription* vertexInputAttributeDescriptions = stackalloc VertexInputAttributeDescription[vertexInputAttributeFormatOffset.Length];
+                for (uint i = 0; i < vertexInputAttributeFormatOffset.Length; i++)
+                {
+                    vertexInputAttributeDescriptions[i] = new
+                    (
+                        location: i,
+                        binding: 0,
+                        format: vertexInputAttributeFormatOffset[i].Item1,
+                        offset: vertexInputAttributeFormatOffset[i].Item2
+                    );
+                }
+
+                pipelineVertexInputStateCreateInfo.VertexBindingDescriptionCount = 1;
+                pipelineVertexInputStateCreateInfo.PVertexBindingDescriptions = &vertexInputBindingDescription;
+
+                pipelineVertexInputStateCreateInfo.VertexAttributeDescriptionCount = (uint)vertexInputAttributeFormatOffset.Length;
+                pipelineVertexInputStateCreateInfo.PVertexAttributeDescriptions = vertexInputAttributeDescriptions;
+            }
+
+            PipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = new(topology: PrimitiveTopology.TriangleList);
+
+            PipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = new
+            (
+                viewportCount: 1,
+                pViewports: null,
+                scissorCount: 1,
+                pScissors: null
+            );
+
+            PipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = new
+            (
+                depthClampEnable: false,
+                rasterizerDiscardEnable: false,
+                polygonMode: PolygonMode.Fill,
+                cullMode: CullModeFlags.CullModeBackBit,
+                frontFace: frontFace,
+                depthBiasEnable: false,
+                depthBiasConstantFactor: 0.0f,
+                depthBiasClamp: 0.0f,
+                depthBiasSlopeFactor: 0.0f,
+                lineWidth: 1.0f
+            );
+
+            PipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo = new(rasterizationSamples: SampleCountFlags.SampleCount1Bit);
+
+            StencilOpState stencilOpState = new(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep, CompareOp.Always);
+
+            PipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = new
+            (
+                depthTestEnable: depthBuffered,
+                depthWriteEnable: depthBuffered,
+                depthCompareOp: CompareOp.LessOrEqual,
+                depthBoundsTestEnable: false,
+                stencilTestEnable: false,
+                front: stencilOpState,
+                back: stencilOpState
+            );
+
+            ColorComponentFlags colorComponentFlags =
+                ColorComponentFlags.ColorComponentRBit |
+                ColorComponentFlags.ColorComponentGBit |
+                ColorComponentFlags.ColorComponentBBit |
+                ColorComponentFlags.ColorComponentABit;
+
+            PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = new(false,
+                                                                         BlendFactor.Zero,
+                                                                         BlendFactor.Zero,
+                                                                         BlendOp.Add,
+                                                                         BlendFactor.Zero,
+                                                                         BlendFactor.Zero,
+                                                                         BlendOp.Add,
+                                                                         colorComponentFlags);
+
+
+
+            PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = new
+            (
+                logicOpEnable: false,
+                logicOp: LogicOp.NoOp,
+                attachmentCount: 1,
+                pAttachments: &pipelineColorBlendAttachmentState
+            );
+
+            pipelineColorBlendStateCreateInfo.BlendConstants[0] = 0.0f;
+            pipelineColorBlendStateCreateInfo.BlendConstants[1] = 0.0f;
+            pipelineColorBlendStateCreateInfo.BlendConstants[2] = 0.0f;
+            pipelineColorBlendStateCreateInfo.BlendConstants[3] = 0.0f;
+
+            DynamicState* dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
+
+            PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo = new(dynamicStateCount: 2, pDynamicStates: dynamicStates);
+
+            GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = new
+                (
+                    stageCount: 2,
+                    pStages: pipelineShaderStageCreateInfos,
+                    pVertexInputState: &pipelineVertexInputStateCreateInfo,
+                    pInputAssemblyState: &pipelineInputAssemblyStateCreateInfo,
+                    pViewportState: &pipelineViewportStateCreateInfo,
+                    pRasterizationState: &pipelineRasterizationStateCreateInfo,
+                    pMultisampleState: &pipelineMultisampleStateCreateInfo,
+                    pDepthStencilState: &pipelineDepthStencilStateCreateInfo,
+                    pColorBlendState: &pipelineColorBlendStateCreateInfo,
+                    pDynamicState: &pipelineDynamicStateCreateInfo,
+                    layout: pipelineLayout,
+                    renderPass: renderPass
+                );
+
+
+            var pipeline = new VkPipeline(device, pipelineCache, graphicsPipelineCreateInfo);
+
+            SilkMarshal.Free((nint)pipelineShaderStageCreateInfos[0].PName);
+            SilkMarshal.Free((nint)pipelineShaderStageCreateInfos[1].PName);
+
+            return pipeline;
+        }
+
+        public static VkDescriptorSetLayout MakeDescriptorSetLayout(VkDevice device,
+                                              (DescriptorType descriptorType, uint descriptorCount, ShaderStageFlags shaderStageFlags)[] bindingData,
+                                              DescriptorSetLayoutCreateFlags flags = 0)
+        {
+            DescriptorSetLayoutBinding* bindings = stackalloc DescriptorSetLayoutBinding[bindingData.Length];
+
+            for (uint i = 0; i < bindingData.Length; i++)
+            {
+                bindings[i] = new DescriptorSetLayoutBinding(
+                  i,
+                  bindingData[i].descriptorType,
+                  bindingData[i].descriptorCount,
+                  bindingData[i].shaderStageFlags
+                  );
+            }
+
+            DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new(
+                flags: flags,
+                bindingCount: (uint)bindingData.Length,
+                pBindings: bindings);
+
+            return new VkDescriptorSetLayout(device, descriptorSetLayoutCreateInfo);
+        }
+
+        public static Format PickDepthFormat(VkPhysicalDevice physicalDevice)
+        {
+            Format[] candidates = new[] { Format.D32Sfloat, Format.D32SfloatS8Uint, Format.D24UnormS8Uint };
+            foreach (Format format in candidates)
+            {
+                FormatProperties props = physicalDevice.GetFormatProperties(format);
+
+                if (props.OptimalTilingFeatures.HasFlag(FormatFeatureFlags.FormatFeatureDepthStencilAttachmentBit))
+                {
+                    return format;
+                }
+            }
+            throw new Exception("failed to find supported format!");
+        }
+
+        public static VkRenderPass MakeRenderPass(VkDevice device,
+                                    Format colorFormat,
+                                    Format depthFormat,
+                                    AttachmentLoadOp loadOp = AttachmentLoadOp.Clear,
+                                    ImageLayout colorFinalLayout = ImageLayout.PresentSrcKhr)
+        {
+            List<AttachmentDescription> attachmentDescriptions = new();
+
+            Debug.Assert(colorFormat != Format.Undefined);
+
+            attachmentDescriptions.Add(new()
+            {
+                Format = colorFormat,
+                Samples = SampleCountFlags.SampleCount1Bit,
+                LoadOp = loadOp,
+                StoreOp = AttachmentStoreOp.Store,
+                StencilLoadOp = AttachmentLoadOp.DontCare,
+                StencilStoreOp = AttachmentStoreOp.DontCare,
+                InitialLayout = ImageLayout.Undefined,
+                FinalLayout = colorFinalLayout,
+            });
+          
+            if (depthFormat != Format.Undefined)
+            {
+                attachmentDescriptions.Add(new()
+                {
+                    Format = depthFormat,
+                    Samples = SampleCountFlags.SampleCount1Bit,
+                    LoadOp = loadOp,
+                    StoreOp = AttachmentStoreOp.DontCare,
+                    StencilLoadOp = AttachmentLoadOp.DontCare,
+                    StencilStoreOp = AttachmentStoreOp.DontCare,
+                    InitialLayout = ImageLayout.Undefined,
+                    FinalLayout = ImageLayout.DepthStencilAttachmentOptimal,
+                });
+                
+            }
+            AttachmentReference colorAttachment = new( 0, ImageLayout.ColorAttachmentOptimal);
+            AttachmentReference depthAttachment = new( 1, ImageLayout.DepthStencilAttachmentOptimal);
+
+            SubpassDescription subpassDescription = new() 
+            {
+                PipelineBindPoint = PipelineBindPoint.Graphics,
+                ColorAttachmentCount = 1,
+                PColorAttachments = &colorAttachment,
+                PDepthStencilAttachment = (depthFormat != Format.Undefined) ? &depthAttachment : null
+            };
+
+            AttachmentDescription* attachments = stackalloc AttachmentDescription[attachmentDescriptions.Count];
+
+            for (int i = 0; i < attachmentDescriptions.Count; i++)
+            {
+                attachments[i] = attachmentDescriptions[i];
+            }
+
+            RenderPassCreateInfo renderPassCreateInfo = new
+            (
+                attachmentCount: (uint)attachmentDescriptions.Count,
+                pAttachments: attachments,
+                subpassCount: 1,
+                pSubpasses: &subpassDescription            
+            );
+         
+            return new VkRenderPass(device, renderPassCreateInfo);
         }
     }
 }
