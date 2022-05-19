@@ -254,26 +254,8 @@ namespace VulkanTest
 
         void CreateFramebuffers()
         {
-            swapChainFramebuffers = new VkFramebuffer[swapChainData.ImageViews.Length];
-
-            ImageView* attachments = stackalloc ImageView[2];
-                   
-            for (int i = 0; i < swapChainFramebuffers.Length; i++)
-            {
-                attachments[0] = swapChainData.ImageViews[i];
-                attachments[1] = depthBuffer.imageView;
-
-                FramebufferCreateInfo framebufferInfo = new(                                  
-                    renderPass: renderPass,
-                    attachmentCount: 2,
-                    pAttachments: attachments,
-                    width: swapChainData.SwapchainExtent.Width,
-                    height: swapChainData.SwapchainExtent.Height,
-                    layers: 1
-                );
-
-                swapChainFramebuffers[i] = new VkFramebuffer(device, framebufferInfo);                
-            }
+            swapChainFramebuffers = SU.MakeFramebuffers(device, renderPass, swapChainData.ImageViews, depthBuffer.imageView,
+                swapChainData.SwapchainExtent);            
         }
 
         void CreateCommandPool()

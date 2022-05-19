@@ -819,5 +819,35 @@ namespace VulkanTest.Utils
          
             return new VkRenderPass(device, renderPassCreateInfo);
         }
+
+        public static VkFramebuffer[] MakeFramebuffers(VkDevice device,
+                                                  VkRenderPass renderPass,
+                                                  VkImageView[] imageViews,
+                                                  VkImageView depthImageView,
+                                                  Extent2D extent)
+        {
+            ImageView *attachments = stackalloc ImageView[2];
+            attachments[1] = depthImageView ?? new ImageView(null);
+           
+            FramebufferCreateInfo framebufferInfo = new
+            (
+                 renderPass: renderPass,
+                 attachmentCount: depthImageView != null ? (uint)2 : (uint)1,
+                 pAttachments: attachments,
+                 width: extent.Width,
+                 height: extent.Height,
+                 layers: 1
+            );
+
+            VkFramebuffer[] framebuffers = new VkFramebuffer[imageViews.Length];
+          
+            for (int i = 0; i < imageViews.Length; i++)
+            {
+                attachments[0] = imageViews[i];
+                framebuffers[i] = new VkFramebuffer(device, framebufferInfo);             
+            }
+
+            return framebuffers;
+        }
     }
 }
