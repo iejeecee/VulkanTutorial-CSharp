@@ -306,10 +306,9 @@ namespace VulkanTest
                 true);
 
             using var pinHandle = memory.Pin();
-            void* srcData = pinHandle.Pointer;
-
+           
             SU.OneTimeSubmit(device, commandPool, graphicsQueue,
-                commandBuffer => textureData.SetImage(commandBuffer, srcData, imageSize));
+                commandBuffer => textureData.SetImage(commandBuffer, pinHandle.Pointer, imageSize));
         }
                                         
         void CreateVertexBuffer()
@@ -531,15 +530,14 @@ namespace VulkanTest
         }
         
         void UpdateUniformBuffer(uint currentImage)
-        {
-            long currentTime = DateTime.Now.Ticks;
-            float time = (float)TimeSpan.FromTicks(currentTime - startTime).TotalSeconds;
+        {         
+            float secondsPassed = (float)TimeSpan.FromTicks(DateTime.Now.Ticks - startTime).TotalSeconds;
 
             UniformBufferObject ubo = new();
 
             ubo.model = Matrix4X4.CreateFromAxisAngle(
                 new Vector3D<float>(0, 0, 1),
-                time * Scalar.DegreesToRadians(90.0f));
+                secondsPassed * Scalar.DegreesToRadians(90.0f));
 
             ubo.view = Matrix4X4.CreateLookAt(
                 new Vector3D<float>(2.0f, 2.0f, 2.0f),
