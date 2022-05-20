@@ -206,9 +206,9 @@ namespace VulkanTest
 
         void CreateDescriptorSetLayout()
         {
-            descriptorSetLayout = SU.MakeDescriptorSetLayout(device,
-                new[]{(DescriptorType.UniformBuffer, (uint)1, ShaderStageFlags.ShaderStageVertexBit),
-                (DescriptorType.CombinedImageSampler, (uint)1, ShaderStageFlags.ShaderStageFragmentBit)});
+            descriptorSetLayout = SU.MakeDescriptorSetLayout(device, new[]{
+                (DescriptorType.UniformBuffer, 1, ShaderStageFlags.ShaderStageVertexBit),
+                (DescriptorType.CombinedImageSampler, 1, ShaderStageFlags.ShaderStageFragmentBit)});
 
         }
 
@@ -356,7 +356,7 @@ namespace VulkanTest
 
         void CreateDescriptorPool()
         {       
-            DescriptorPoolSize* poolSizes = stackalloc DescriptorPoolSize[]
+            DescriptorPoolSize[] poolSizes = new DescriptorPoolSize[]
             {
                 new DescriptorPoolSize
                 {
@@ -371,14 +371,8 @@ namespace VulkanTest
                 }
             };
 
-            DescriptorPoolCreateInfo poolInfo = new
-            (               
-                poolSizeCount: 2,
-                pPoolSizes: poolSizes,
-                maxSets: MAX_FRAMES_IN_FLIGHT
-            );
-
-            descriptorPool = new VkDescriptorPool(device, poolInfo);          
+            descriptorPool = SU.MakeDescriptorPool(device, poolSizes);
+         
         }
 
         void CreateDescriptorSets()
@@ -400,45 +394,10 @@ namespace VulkanTest
             descriptorSets = new VkDescriptorSets(device, allocInfo).ToArray();
           
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-            {
-                DescriptorBufferInfo bufferInfo = new()
-                {
-                    Buffer = uniformBuffers[i].buffer,
-                    Offset = 0,
-                    Range = (ulong)sizeof(UniformBufferObject)
-                };
-
-                DescriptorImageInfo imageInfo = new()
-                {
-                    ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-                    ImageView = textureData.imageData.imageView,
-                    Sampler = textureData.sampler
-                };
-
-                WriteDescriptorSet[] descriptorWrites = new WriteDescriptorSet[]
-                {
-                    new WriteDescriptorSet
-                    (
-                        dstSet: descriptorSets[i],
-                        dstBinding: 0,
-                        dstArrayElement: 0,
-                        descriptorType: DescriptorType.UniformBuffer,
-                        descriptorCount: 1,
-                        pBufferInfo: &bufferInfo
-                    ),
-
-                    new WriteDescriptorSet
-                    (
-                        dstSet: descriptorSets[i],
-                        dstBinding: 1,
-                        dstArrayElement: 0,
-                        descriptorType: DescriptorType.CombinedImageSampler,
-                        descriptorCount: 1,
-                        pImageInfo: &imageInfo
-                    )
-                };
-
-                device.UpdateDescriptorSets(descriptorWrites, null);                
+            {                
+                SU.UpdateDescriptorSets(device, descriptorSets[i], new[]{
+                    (DescriptorType.UniformBuffer,uniformBuffers[i].buffer,(ulong)sizeof(UniformBufferObject), (VkBufferView)null)},
+                    textureData);
             }
         }
 

@@ -716,7 +716,7 @@ namespace VulkanTest.Utils
         }
 
         public static VkDescriptorSetLayout MakeDescriptorSetLayout(VkDevice device,
-                                              (DescriptorType descriptorType, uint descriptorCount, ShaderStageFlags shaderStageFlags)[] bindingData,
+                                              (DescriptorType descriptorType, int descriptorCount, ShaderStageFlags shaderStageFlags)[] bindingData,
                                               DescriptorSetLayoutCreateFlags flags = 0)
         {
             DescriptorSetLayoutBinding* bindings = stackalloc DescriptorSetLayoutBinding[bindingData.Length];
@@ -726,7 +726,7 @@ namespace VulkanTest.Utils
                 bindings[i] = new DescriptorSetLayoutBinding(
                   i,
                   bindingData[i].descriptorType,
-                  bindingData[i].descriptorCount,
+                  (uint)bindingData[i].descriptorCount,
                   bindingData[i].shaderStageFlags
                   );
             }
@@ -849,5 +849,130 @@ namespace VulkanTest.Utils
 
             return framebuffers;
         }
+
+        public static VkDescriptorPool MakeDescriptorPool(VkDevice device, DescriptorPoolSize[] poolSizes)
+        {
+            Debug.Assert(poolSizes.Length > 0);
+
+            uint maxSets = poolSizes.Aggregate<DescriptorPoolSize, uint>(0, (sum, dps) => sum + dps.DescriptorCount);
+
+            Debug.Assert(maxSets > 0);
+
+            fixed (DescriptorPoolSize* poolSizesPtr = &poolSizes[0])
+            {
+                DescriptorPoolCreateInfo descriptorPoolCreateInfo = new
+                (
+                    poolSizeCount: (uint)poolSizes.Length,
+                    pPoolSizes: poolSizesPtr,
+                    maxSets: maxSets
+                );
+
+                return new VkDescriptorPool(device, descriptorPoolCreateInfo);
+            }            
+        }
+
+        public static void UpdateDescriptorSets(VkDevice device,
+            VkDescriptorSet descriptorSet,
+            (DescriptorType descriptorType, VkBuffer buffer, ulong range, VkBufferView bufferView)[] bufferData,
+            TextureData textureData,
+            uint bindingOffset = 0)
+        {
+                     
+            WriteDescriptorSet[] writeDescriptorSets = new WriteDescriptorSet[bufferData.Length + 1]; 
+           
+            uint dstBinding = bindingOffset;
+
+            int i;
+
+            for (i = 0; i < bufferData.Length; i++)
+            {
+                var bd = bufferData[i];
+
+                DescriptorBufferInfo bufferInfo = new (bd.buffer, 0, bd.range);
+               
+                BufferView bufferView = new(null);
+                if (bd.bufferView != null)
+                {
+                    bufferView = bd.bufferView;
+                }
+                
+                writeDescriptorSets[i] = new
+                (
+                        dstSet: descriptorSet,
+                        dstBinding: dstBinding++,
+                        dstArrayElement: 0,
+                        descriptorCount: 1,
+                        descriptorType: bd.descriptorType,                       
+                        pBufferInfo: &bufferInfo,
+                        pTexelBufferView: &bufferView
+                );
+                
+            }
+
+            DescriptorImageInfo imageInfo = new(textureData.sampler, textureData.imageData.imageView, ImageLayout.ShaderReadOnlyOptimal);
+
+            writeDescriptorSets[i] = new
+            (
+                    dstSet: descriptorSet,
+                    dstBinding: dstBinding,
+                    dstArrayElement: 0,
+                    descriptorCount: 1,
+                    descriptorType: DescriptorType.CombinedImageSampler,
+                    pImageInfo: &imageInfo                  
+            );
+           
+            device.UpdateDescriptorSets(writeDescriptorSets, null);
+        }
+
+        /*public static void UpdateDescriptorSets(VkDevice device,
+            VkDescriptorSet descriptorSet,
+            (DescriptorType descriptorType, VkBuffer buffer, ulong range, VkBufferView bufferView)[] bufferData,
+            TextureData[] textureData,
+            uint bindingOffset = 0)
+        {
+
+            WriteDescriptorSet[] writeDescriptorSets = new WriteDescriptorSet[bufferData.Length + 1];
+
+            uint dstBinding = bindingOffset;
+
+            int i;
+
+            for (i = 0; i < bufferData.Length; i++)
+            {
+                var bd = bufferData[i];
+
+                DescriptorBufferInfo bufferInfo = new(bd.buffer, 0, bd.range);
+
+                BufferView bufferView = new(null);
+                if (bd.bufferView != null)
+                {
+                    bufferView = bd.bufferView;
+                }
+
+                writeDescriptorSets[i] = new
+                (
+                        dstSet: descriptorSet,
+                        dstBinding: dstBinding++,
+                        dstArrayElement: 0,
+                        descriptorCount: 1,
+                        descriptorType: bd.descriptorType,
+                        pBufferInfo: &bufferInfo,
+                        pTexelBufferView: &bufferView
+                );
+
+            }
+
+            DescriptorImageInfo imageInfo = new(textureData.sampler, textureData.imageData.imageView, ImageLayout.ShaderReadOnlyOptimal);
+            writeDescriptorSets[i] = new
+            (
+                    dstSet: descriptorSet,
+                    dstBinding: dstBinding,
+                    dstArrayElement: 0,
+                    descriptorType: DescriptorType.CombinedImageSampler,
+                    pImageInfo: &imageInfo
+            );
+
+            device.UpdateDescriptorSets(writeDescriptorSets, null);
+        }*/
     }
 }
