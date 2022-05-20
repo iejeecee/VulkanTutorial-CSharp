@@ -137,7 +137,7 @@ namespace VulkanTest.Utils
                 }
             }
 
-            Debug.Print($"VK ({messageTypeStr}{messageSeverity}) {messageIdName}: {message}");
+            Console.WriteLine($"VK ({messageTypeStr}{messageSeverity}) {messageIdName}: {message}");
 
             return Vk.False;
         }
