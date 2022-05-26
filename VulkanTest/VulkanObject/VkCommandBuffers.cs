@@ -24,7 +24,7 @@ namespace VulkanTest.VulkanObject
         {
             Vk vk = Vk.GetApi();
 
-            CommandBuffer* commandBuffers = stackalloc CommandBuffer[(int)allocateInfo.CommandBufferCount];
+            CommandBuffer* commandBuffers = (CommandBuffer*)Mem.AllocArray<CommandBuffer>((int)allocateInfo.CommandBufferCount);
 
             Result result = vk.AllocateCommandBuffers(device, allocateInfo, commandBuffers);
 
@@ -37,6 +37,8 @@ namespace VulkanTest.VulkanObject
             {
                 Add(new VkCommandBuffer(commandBuffers[i], device, allocateInfo.CommandPool));
             }
+
+            Mem.FreeArray(commandBuffers);
         }
 
     }

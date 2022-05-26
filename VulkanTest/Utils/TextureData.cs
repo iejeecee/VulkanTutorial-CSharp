@@ -86,7 +86,7 @@ namespace VulkanTest.Utils
                                    initialLayout,
                                    requirements,
                                    ImageAspectFlags.ImageAspectColorBit);
-
+            
         }
 
         public void SetImage(VkCommandBuffer commandBuffer, void* srcData, ulong srcDataSize)

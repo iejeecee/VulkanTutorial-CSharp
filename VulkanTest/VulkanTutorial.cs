@@ -187,35 +187,11 @@ namespace VulkanTest
               indices.PresentFamily.Value);
                     
         }
-          
-        VkShaderModule CreateShaderModule(string filename)
-        {
-            byte[] code = File.ReadAllBytes(filename);
-
-            fixed (byte* codePtr = code)
-            {
-                ShaderModuleCreateInfo createInfo = new
-                (                                 
-                    codeSize: (nuint)code.Length,
-                    pCode: (uint*)codePtr
-                );
-
-                return new VkShaderModule(device, createInfo);             
-            }
-        }
-
-        void CreateDescriptorSetLayout()
-        {
-            descriptorSetLayout = SU.MakeDescriptorSetLayout(device, new[]{
-                (DescriptorType.UniformBuffer, 1, ShaderStageFlags.ShaderStageVertexBit),
-                (DescriptorType.CombinedImageSampler, 1, ShaderStageFlags.ShaderStageFragmentBit)});
-
-        }
-
+                       
         void CreateGraphicsPipeline()
         {        
-            VkShaderModule vertShaderModule = CreateShaderModule("vertshader.spv");
-            VkShaderModule fragShaderModule = CreateShaderModule("fragshader.spv");
+            VkShaderModule vertShaderModule = SU.CreateShaderModule(device, "vertshader.spv");
+            VkShaderModule fragShaderModule = SU.CreateShaderModule(device, "fragshader.spv");
           
             DescriptorSetLayout descriptorSetLayoutPtr = descriptorSetLayout;
             
@@ -351,6 +327,14 @@ namespace VulkanTest
                 uniformBuffers[i] = new BufferData(physicalDevice, device, bufferSize,
                     BufferUsageFlags.BufferUsageUniformBufferBit);           
             }
+        }
+
+        void CreateDescriptorSetLayout()
+        {
+            descriptorSetLayout = SU.MakeDescriptorSetLayout(device, new[]{
+                (DescriptorType.UniformBuffer, 1, ShaderStageFlags.ShaderStageVertexBit),
+                (DescriptorType.CombinedImageSampler, 1, ShaderStageFlags.ShaderStageFragmentBit)});
+
         }
 
         void CreateDescriptorPool()

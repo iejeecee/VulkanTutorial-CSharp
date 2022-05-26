@@ -13,20 +13,20 @@ namespace VulkanTest.VulkanObject
     {
         readonly Vk vk;
         Instance instance;
-                     
+
         readonly string[] validationLayers;
         private bool disposedValue;
 
-        public VkInstance(          
+        public VkInstance(
             string appName,
             string engineName,
             Version32 apiVersion,
             string[] extensions = null,
             string[] layers = null,
             DebugUtilsMessengerCreateInfoEXT? messengerInfo = null)
-        {          
+        {
             if (extensions == null) extensions = Array.Empty<string>();
-          
+
             vk = Vk.GetApi();
 
             if (layers != null)
@@ -39,7 +39,7 @@ namespace VulkanTest.VulkanObject
             }
 
             ApplicationInfo appInfo = new
-            (               
+            (
                 pApplicationName: (byte*)Marshal.StringToHGlobalAnsi(appName),
                 applicationVersion: new Version32(1, 0, 0),
                 pEngineName: (byte*)Marshal.StringToHGlobalAnsi(engineName),
@@ -48,24 +48,17 @@ namespace VulkanTest.VulkanObject
             );
 
             InstanceCreateInfo createInfo = new
-            (              
+            (
                 pApplicationInfo: &appInfo
             );
 
-            var newExtensions = stackalloc byte*[extensions.Length];
-
-            for (var i = 0; i < extensions.Length; i++)
-            {
-                newExtensions[i] = (byte*)SilkMarshal.StringToPtr(extensions[i]);
-            }
-
             createInfo.EnabledExtensionCount = (uint)extensions.Length;
-            createInfo.PpEnabledExtensionNames = newExtensions;
+            createInfo.PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(extensions);
 
             if (validationLayers != null)
             {
                 createInfo.EnabledLayerCount = (uint)validationLayers.Length;
-                createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);               
+                createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(validationLayers);
             }
 
             if (messengerInfo.HasValue)
@@ -73,23 +66,21 @@ namespace VulkanTest.VulkanObject
                 DebugUtilsMessengerCreateInfoEXT info = messengerInfo.Value;
                 createInfo.PNext = &info;
             }
-       
+
             Result result = vk.CreateInstance(in createInfo, null, out instance);
             if (result != Result.Success)
             {
                 throw new Exception("Failed to create instance!");
             }
-                  
-            for (var i = 0; i < extensions.Length; i++)
-            {
-                SilkMarshal.Free((nint)newExtensions[i]);
-            }
+
+            SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
+            SilkMarshal.Free((nint)createInfo.PpEnabledExtensionNames);
 
             Marshal.FreeHGlobal((nint)appInfo.PApplicationName);
             Marshal.FreeHGlobal((nint)appInfo.PEngineName);
-                  
+
         }
-                           
+
         string[] CheckAvailableValidationLayers(string[] layers)
         {
             uint nrLayers = 0;
@@ -108,7 +99,7 @@ namespace VulkanTest.VulkanObject
 
             return null;
         }
-        
+
         public VkPhysicalDevice[] EnumerateDevices()
         {
             uint deviceCount = 0;
@@ -143,18 +134,18 @@ namespace VulkanTest.VulkanObject
                 {
                     // TODO: dispose managed state (managed objects)
                 }
-                            
+
                 vk.DestroyInstance(instance, null);
 
                 disposedValue = true;
             }
         }
 
-         // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
+        // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
         ~VkInstance()
         {
-             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-             Dispose(disposing: false);
+            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+            Dispose(disposing: false);
         }
 
         public void Dispose()
@@ -166,5 +157,5 @@ namespace VulkanTest.VulkanObject
     }
 
 
-    
+
 }

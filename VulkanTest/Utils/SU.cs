@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -137,7 +138,7 @@ namespace VulkanTest.Utils
                 }
             }
 
-            Console.WriteLine($"VK ({messageTypeStr}{messageSeverity}) {messageIdName}: {message}");
+            Debug.WriteLine($"VK ({messageTypeStr}{messageSeverity}) {messageIdName}: {message}");
 
             return Vk.False;
         }
@@ -409,7 +410,13 @@ namespace VulkanTest.Utils
                     }
                 case ImageLayout.Preinitialized:
                     {
-                        sourceAccessMask = AccessFlags.AccessHostWriteBit; break;
+                        sourceAccessMask = AccessFlags.AccessHostWriteBit;
+                        break;
+                    }
+                case ImageLayout.ColorAttachmentOptimal:
+                    {
+                        sourceAccessMask = AccessFlags.AccessColorAttachmentWriteBit;
+                        break;
                     }
                 case ImageLayout.General:  // sourceAccessMask is empty
                 case ImageLayout.Undefined:
@@ -596,9 +603,11 @@ namespace VulkanTest.Utils
             PipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = new(flags: 0);
             VertexInputBindingDescription vertexInputBindingDescription = new(0, vertexStride);
 
+            VertexInputAttributeDescription* vertexInputAttributeDescriptions = null;
+
             if (vertexStride > 0)
             {
-                VertexInputAttributeDescription* vertexInputAttributeDescriptions = stackalloc VertexInputAttributeDescription[vertexInputAttributeFormatOffset.Length];
+                vertexInputAttributeDescriptions = (VertexInputAttributeDescription*)Mem.AllocArray<VertexInputAttributeDescription>(vertexInputAttributeFormatOffset.Length);
                 for (uint i = 0; i < vertexInputAttributeFormatOffset.Length; i++)
                 {
                     vertexInputAttributeDescriptions[i] = new
@@ -662,16 +671,15 @@ namespace VulkanTest.Utils
                 ColorComponentFlags.ColorComponentBBit |
                 ColorComponentFlags.ColorComponentABit;
 
-            PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = new(false,
-                                                                         BlendFactor.Zero,
-                                                                         BlendFactor.Zero,
-                                                                         BlendOp.Add,
-                                                                         BlendFactor.Zero,
-                                                                         BlendFactor.Zero,
-                                                                         BlendOp.Add,
-                                                                         colorComponentFlags);
-
-
+            PipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = new(
+                false,
+                BlendFactor.Zero,
+                BlendFactor.Zero,
+                BlendOp.Add,
+                BlendFactor.Zero,
+                BlendFactor.Zero,
+                BlendOp.Add,
+                colorComponentFlags);
 
             PipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = new
             (
@@ -688,29 +696,34 @@ namespace VulkanTest.Utils
 
             DynamicState* dynamicStates = stackalloc[] { DynamicState.Viewport, DynamicState.Scissor };
 
-            PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo = new(dynamicStateCount: 2, pDynamicStates: dynamicStates);
+            PipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo = new
+            (
+                dynamicStateCount: 2,
+                pDynamicStates: dynamicStates
+            );
 
             GraphicsPipelineCreateInfo graphicsPipelineCreateInfo = new
-                (
-                    stageCount: 2,
-                    pStages: pipelineShaderStageCreateInfos,
-                    pVertexInputState: &pipelineVertexInputStateCreateInfo,
-                    pInputAssemblyState: &pipelineInputAssemblyStateCreateInfo,
-                    pViewportState: &pipelineViewportStateCreateInfo,
-                    pRasterizationState: &pipelineRasterizationStateCreateInfo,
-                    pMultisampleState: &pipelineMultisampleStateCreateInfo,
-                    pDepthStencilState: &pipelineDepthStencilStateCreateInfo,
-                    pColorBlendState: &pipelineColorBlendStateCreateInfo,
-                    pDynamicState: &pipelineDynamicStateCreateInfo,
-                    layout: pipelineLayout,
-                    renderPass: renderPass
-                );
-
+            (
+                stageCount: 2,
+                pStages: pipelineShaderStageCreateInfos,
+                pVertexInputState: &pipelineVertexInputStateCreateInfo,
+                pInputAssemblyState: &pipelineInputAssemblyStateCreateInfo,
+                pViewportState: &pipelineViewportStateCreateInfo,
+                pRasterizationState: &pipelineRasterizationStateCreateInfo,
+                pMultisampleState: &pipelineMultisampleStateCreateInfo,
+                pDepthStencilState: &pipelineDepthStencilStateCreateInfo,
+                pColorBlendState: &pipelineColorBlendStateCreateInfo,
+                pDynamicState: &pipelineDynamicStateCreateInfo,
+                layout: pipelineLayout,
+                renderPass: renderPass
+            );
 
             var pipeline = new VkPipeline(device, pipelineCache, graphicsPipelineCreateInfo);
 
             SilkMarshal.Free((nint)pipelineShaderStageCreateInfos[0].PName);
             SilkMarshal.Free((nint)pipelineShaderStageCreateInfos[1].PName);
+
+            Mem.FreeArray(vertexInputAttributeDescriptions);
 
             return pipeline;
         }
@@ -719,24 +732,31 @@ namespace VulkanTest.Utils
                                               (DescriptorType descriptorType, int descriptorCount, ShaderStageFlags shaderStageFlags)[] bindingData,
                                               DescriptorSetLayoutCreateFlags flags = 0)
         {
-            DescriptorSetLayoutBinding* bindings = stackalloc DescriptorSetLayoutBinding[bindingData.Length];
+            DescriptorSetLayoutBinding* bindings = (DescriptorSetLayoutBinding*)Mem.AllocArray<DescriptorSetLayoutBinding>(bindingData.Length);
 
             for (uint i = 0; i < bindingData.Length; i++)
             {
-                bindings[i] = new DescriptorSetLayoutBinding(
-                  i,
-                  bindingData[i].descriptorType,
-                  (uint)bindingData[i].descriptorCount,
-                  bindingData[i].shaderStageFlags
-                  );
+                bindings[i] = new DescriptorSetLayoutBinding
+                (
+                    i,
+                    bindingData[i].descriptorType,
+                    (uint)bindingData[i].descriptorCount,
+                    bindingData[i].shaderStageFlags
+                );
             }
 
-            DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new(
+            DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new
+            (
                 flags: flags,
                 bindingCount: (uint)bindingData.Length,
-                pBindings: bindings);
+                pBindings: bindings
+            );
 
-            return new VkDescriptorSetLayout(device, descriptorSetLayoutCreateInfo);
+            var result = new VkDescriptorSetLayout(device, descriptorSetLayoutCreateInfo);
+
+            Mem.FreeArray(bindings);
+
+            return result;
         }
 
         public static Format PickDepthFormat(VkPhysicalDevice physicalDevice)
@@ -775,7 +795,7 @@ namespace VulkanTest.Utils
                 InitialLayout = ImageLayout.Undefined,
                 FinalLayout = colorFinalLayout,
             });
-          
+
             if (depthFormat != Format.Undefined)
             {
                 attachmentDescriptions.Add(new()
@@ -789,12 +809,12 @@ namespace VulkanTest.Utils
                     InitialLayout = ImageLayout.Undefined,
                     FinalLayout = ImageLayout.DepthStencilAttachmentOptimal,
                 });
-                
-            }
-            AttachmentReference colorAttachment = new( 0, ImageLayout.ColorAttachmentOptimal);
-            AttachmentReference depthAttachment = new( 1, ImageLayout.DepthStencilAttachmentOptimal);
 
-            SubpassDescription subpassDescription = new() 
+            }
+            AttachmentReference colorAttachment = new(0, ImageLayout.ColorAttachmentOptimal);
+            AttachmentReference depthAttachment = new(1, ImageLayout.DepthStencilAttachmentOptimal);
+
+            SubpassDescription subpassDescription = new()
             {
                 PipelineBindPoint = PipelineBindPoint.Graphics,
                 ColorAttachmentCount = 1,
@@ -802,7 +822,7 @@ namespace VulkanTest.Utils
                 PDepthStencilAttachment = (depthFormat != Format.Undefined) ? &depthAttachment : null
             };
 
-            AttachmentDescription* attachments = stackalloc AttachmentDescription[attachmentDescriptions.Count];
+            AttachmentDescription* attachments = (AttachmentDescription*)Mem.AllocArray<AttachmentDescription>(attachmentDescriptions.Count);
 
             for (int i = 0; i < attachmentDescriptions.Count; i++)
             {
@@ -814,10 +834,14 @@ namespace VulkanTest.Utils
                 attachmentCount: (uint)attachmentDescriptions.Count,
                 pAttachments: attachments,
                 subpassCount: 1,
-                pSubpasses: &subpassDescription            
+                pSubpasses: &subpassDescription
             );
-         
-            return new VkRenderPass(device, renderPassCreateInfo);
+
+            var result = new VkRenderPass(device, renderPassCreateInfo);
+
+            Mem.FreeArray(attachments);
+
+            return result;
         }
 
         public static VkFramebuffer[] MakeFramebuffers(VkDevice device,
@@ -826,9 +850,9 @@ namespace VulkanTest.Utils
                                                   VkImageView depthImageView,
                                                   Extent2D extent)
         {
-            ImageView *attachments = stackalloc ImageView[2];
+            ImageView* attachments = stackalloc ImageView[2];
             attachments[1] = depthImageView ?? new ImageView(null);
-           
+
             FramebufferCreateInfo framebufferInfo = new
             (
                  renderPass: renderPass,
@@ -840,20 +864,31 @@ namespace VulkanTest.Utils
             );
 
             VkFramebuffer[] framebuffers = new VkFramebuffer[imageViews.Length];
-          
+
             for (int i = 0; i < imageViews.Length; i++)
             {
                 attachments[0] = imageViews[i];
-                framebuffers[i] = new VkFramebuffer(device, framebufferInfo);             
+                framebuffers[i] = new VkFramebuffer(device, framebufferInfo);
             }
 
             return framebuffers;
         }
 
+        /// <summary>
+        /// Shader resources are accessable in descriptor sets.
+        /// Descriptor sets are created from a descriptor pool which contains maxSets Descriptor sets.
+        /// Each resourcetype required in a set and the total amount of the resource used over all sets (DescriptorCount)
+        /// are specified when creating the descriptor pool.
+        /// Each descriptor set requires a descriptor layout which defines how the resources are ordered in the set
+        /// </summary>
+        /// <param name="device"></param>
+        /// <param name="poolSizes"></param>
+        /// <returns></returns>
         public static VkDescriptorPool MakeDescriptorPool(VkDevice device, DescriptorPoolSize[] poolSizes)
         {
             Debug.Assert(poolSizes.Length > 0);
 
+            // maxSets parameter specifies how many descriptor sets can be allocated from a given pool
             uint maxSets = poolSizes.Aggregate<DescriptorPoolSize, uint>(0, (sum, dps) => sum + dps.DescriptorCount);
 
             Debug.Assert(maxSets > 0);
@@ -868,7 +903,7 @@ namespace VulkanTest.Utils
                 );
 
                 return new VkDescriptorPool(device, descriptorPoolCreateInfo);
-            }            
+            }
         }
 
         public static void UpdateDescriptorSets(VkDevice device,
@@ -877,102 +912,122 @@ namespace VulkanTest.Utils
             TextureData textureData,
             uint bindingOffset = 0)
         {
-                     
-            WriteDescriptorSet[] writeDescriptorSets = new WriteDescriptorSet[bufferData.Length + 1]; 
-           
+
+            WriteDescriptorSet[] writeDescriptorSets = new WriteDescriptorSet[bufferData.Length + 1];
+            DescriptorBufferInfo* bufferInfos = (DescriptorBufferInfo*)Mem.AllocArray<DescriptorBufferInfo>(bufferData.Length);
+            BufferView* bufferViews = (BufferView*)Mem.AllocArray<BufferView>(bufferData.Length);
+
             uint dstBinding = bindingOffset;
 
-            int i;
+            int i = 0;
 
-            for (i = 0; i < bufferData.Length; i++)
+            for (; i < bufferData.Length; i++)
             {
-                var bd = bufferData[i];
+                bufferInfos[i] = new(bufferData[i].buffer, 0, bufferData[i].range);
+                bufferViews[i] = bufferData[i].bufferView ?? new BufferView(null);
 
-                DescriptorBufferInfo bufferInfo = new (bd.buffer, 0, bd.range);
-               
-                BufferView bufferView = new(null);
-                if (bd.bufferView != null)
-                {
-                    bufferView = bd.bufferView;
-                }
-                
                 writeDescriptorSets[i] = new
                 (
-                        dstSet: descriptorSet,
-                        dstBinding: dstBinding++,
-                        dstArrayElement: 0,
-                        descriptorCount: 1,
-                        descriptorType: bd.descriptorType,                       
-                        pBufferInfo: &bufferInfo,
-                        pTexelBufferView: &bufferView
+                    dstSet: descriptorSet,
+                    dstBinding: dstBinding++,
+                    dstArrayElement: 0,
+                    descriptorCount: 1,
+                    descriptorType: bufferData[i].descriptorType,
+                    pBufferInfo: &bufferInfos[i],
+                    pTexelBufferView: &bufferViews[i]
                 );
-                
             }
 
             DescriptorImageInfo imageInfo = new(textureData.sampler, textureData.imageData.imageView, ImageLayout.ShaderReadOnlyOptimal);
 
             writeDescriptorSets[i] = new
             (
-                    dstSet: descriptorSet,
-                    dstBinding: dstBinding,
-                    dstArrayElement: 0,
-                    descriptorCount: 1,
-                    descriptorType: DescriptorType.CombinedImageSampler,
-                    pImageInfo: &imageInfo                  
+                dstSet: descriptorSet,
+                dstBinding: dstBinding,
+                dstArrayElement: 0,
+                descriptorCount: 1,
+                descriptorType: DescriptorType.CombinedImageSampler,
+                pImageInfo: &imageInfo
             );
-           
+
             device.UpdateDescriptorSets(writeDescriptorSets, null);
+
+            Mem.FreeArray(bufferInfos);
+            Mem.FreeArray(bufferViews);
         }
 
-        /*public static void UpdateDescriptorSets(VkDevice device,
+        public static void UpdateDescriptorSets(VkDevice device,
             VkDescriptorSet descriptorSet,
             (DescriptorType descriptorType, VkBuffer buffer, ulong range, VkBufferView bufferView)[] bufferData,
             TextureData[] textureData,
             uint bindingOffset = 0)
         {
+            WriteDescriptorSet[] writeDescriptorSets = new WriteDescriptorSet[bufferData.Length + textureData.Length];
 
-            WriteDescriptorSet[] writeDescriptorSets = new WriteDescriptorSet[bufferData.Length + 1];
+            DescriptorBufferInfo* bufferInfos = (DescriptorBufferInfo*)Mem.AllocArray<DescriptorBufferInfo>(bufferData.Length);
+            BufferView* bufferViews = (BufferView*)Mem.AllocArray<BufferView>(bufferData.Length);
+            DescriptorImageInfo* imageInfos = (DescriptorImageInfo*)Mem.AllocArray<DescriptorImageInfo>(textureData.Length);
 
             uint dstBinding = bindingOffset;
 
-            int i;
+            int i = 0;
 
-            for (i = 0; i < bufferData.Length; i++)
+            for (; i < bufferData.Length; i++)
             {
-                var bd = bufferData[i];
-
-                DescriptorBufferInfo bufferInfo = new(bd.buffer, 0, bd.range);
-
-                BufferView bufferView = new(null);
-                if (bd.bufferView != null)
-                {
-                    bufferView = bd.bufferView;
-                }
+                bufferInfos[i] = new(bufferData[i].buffer, 0, bufferData[i].range);
+                bufferViews[i] = bufferData[i].bufferView ?? new BufferView(null);
 
                 writeDescriptorSets[i] = new
                 (
-                        dstSet: descriptorSet,
-                        dstBinding: dstBinding++,
-                        dstArrayElement: 0,
-                        descriptorCount: 1,
-                        descriptorType: bd.descriptorType,
-                        pBufferInfo: &bufferInfo,
-                        pTexelBufferView: &bufferView
+                    dstSet: descriptorSet,
+                    dstBinding: dstBinding++,
+                    dstArrayElement: 0,
+                    descriptorCount: 1,
+                    descriptorType: bufferData[i].descriptorType,
+                    pBufferInfo: &bufferInfos[i],
+                    pTexelBufferView: &bufferViews[i]
                 );
 
             }
 
-            DescriptorImageInfo imageInfo = new(textureData.sampler, textureData.imageData.imageView, ImageLayout.ShaderReadOnlyOptimal);
-            writeDescriptorSets[i] = new
-            (
+            for (int j = 0; i < writeDescriptorSets.Length; i++, j++)
+            {
+                imageInfos[j] = new(textureData[j].sampler,
+                    textureData[j].imageData.imageView,
+                    ImageLayout.ShaderReadOnlyOptimal);
+
+                writeDescriptorSets[i] = new
+                (
                     dstSet: descriptorSet,
-                    dstBinding: dstBinding,
+                    dstBinding: dstBinding++,
                     dstArrayElement: 0,
+                    descriptorCount: 1,
                     descriptorType: DescriptorType.CombinedImageSampler,
-                    pImageInfo: &imageInfo
-            );
+                    pImageInfo: &imageInfos[j]
+                );
+            }
 
             device.UpdateDescriptorSets(writeDescriptorSets, null);
-        }*/
+
+            Mem.FreeArray(bufferInfos);
+            Mem.FreeArray(bufferViews);
+            Mem.FreeArray(imageInfos);
+        }
+
+        public static VkShaderModule CreateShaderModule(VkDevice device, string filename)
+        {
+            byte[] code = File.ReadAllBytes(filename);
+
+            fixed (byte* codePtr = code)
+            {
+                ShaderModuleCreateInfo createInfo = new
+                (
+                    codeSize: (nuint)code.Length,
+                    pCode: (uint*)codePtr
+                );
+
+                return new VkShaderModule(device, createInfo);
+            }
+        }
     }
 }

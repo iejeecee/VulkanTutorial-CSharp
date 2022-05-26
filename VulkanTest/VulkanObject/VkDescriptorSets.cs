@@ -23,7 +23,7 @@ namespace VulkanTest.VulkanObject
         {
             Vk vk = Vk.GetApi();
 
-            DescriptorSet* descriptorSets = stackalloc DescriptorSet[(int)allocateInfo.DescriptorSetCount];
+            DescriptorSet* descriptorSets = (DescriptorSet*)Mem.AllocArray<DescriptorSet>((int)allocateInfo.DescriptorSetCount);
 
             Result result = vk.AllocateDescriptorSets(device, allocateInfo, descriptorSets);
 
@@ -36,6 +36,8 @@ namespace VulkanTest.VulkanObject
             {
                 Add(new VkDescriptorSet(descriptorSets[i]));
             }
+
+            Mem.FreeArray(descriptorSets);
         }
     }
 }
